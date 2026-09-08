@@ -1,0 +1,46 @@
+{
+  "_note": "Constructed 2026-09-08 from OSV.dev record fields (id, aliases, summary, details, affected ranges, severity, dates). Re-record raw bytes with: PATCHPILOT_MODE=live PATCHPILOT_RECORD=1 patchpilot scan <repo>",
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "PyPI",
+        "name": "python-multipart",
+        "purl": "pkg:pypi/python-multipart"
+      },
+      "ranges": [
+        {
+          "events": [
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "0.0.7"
+            }
+          ],
+          "type": "ECOSYSTEM"
+        }
+      ]
+    }
+  ],
+  "aliases": [
+    "CVE-2024-24762",
+    "GHSA-qf9m-vfgh-m389",
+    "PYSEC-2024-38",
+    "PYSEC-2026-1850"
+  ],
+  "database_specific": {
+    "severity": "HIGH"
+  },
+  "details": "When using form data, python-multipart parses HTTP Content-Type headers with a regex vulnerable to denial-of-service attacks. Attackers can craft malicious Content-Type options causing regex processing to stall, consuming CPU resources and blocking request handling.",
+  "id": "GHSA-2jv5-9r88-3w3p",
+  "modified": "2026-07-07T17:56:49Z",
+  "published": "2024-02-12T17:28:12Z",
+  "schema_version": "1.6.0",
+  "severity": [
+    {
+      "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "type": "CVSS_V3"
+    }
+  ],
+  "summary": "python-multipart vulnerable to Content-Type Header ReDoS"
+}

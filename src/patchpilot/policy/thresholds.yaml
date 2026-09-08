@@ -1,0 +1,36 @@
+# Policy thresholds. Every number that moves a decision lives here, not in code.
+
+score:
+  # Fallback base score when an advisory has no CVSS v3 vector, keyed by database severity label.
+  label_fallback: { CRITICAL: 9.5, HIGH: 8.0, MODERATE: 5.5, LOW: 2.5, UNKNOWN: 5.0 }
+  # Exposure multiplier from reachability evidence.
+  exposure:
+    symbol_called: 1.00       # vulnerable symbol referenced from app code
+    import_only: 0.70         # package imported, advisory names no symbols
+    imported_not_called: 0.35 # symbols known, none referenced
+    not_imported: 0.20
+  dev_only_multiplier: 0.40
+  # EPSS factor = epss_floor + epss_span * min(epss / epss_saturation, 1)
+  epss_floor: 0.70
+  epss_span: 0.60
+  epss_saturation: 0.10       # EPSS of 10% (top ~5% of CVEs) saturates the factor
+
+tiers:
+  critical: 9.0
+  high: 7.0
+  medium: 4.0                 # below medium is "low"
+
+decisions:
+  # not_applicable: symbols known (or package not imported), not called, confidence >= this,
+  # and package not in a sensitive tier.
+  not_applicable_min_confidence: 0.70
+  # accept_risk: dev-only dependency with EPSS below this, or import-only evidence with a
+  # low score and EPSS below this.
+  accept_risk_max_epss: 0.02
+  accept_risk_max_score: 4.0
+
+gate:
+  # Any of these forces a human gate for an advisory that is not terminal.
+  epss_human: 0.05            # actively exploited territory
+  low_confidence: 0.70
+  budget_warn_fraction: 0.80

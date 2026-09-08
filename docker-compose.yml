@@ -1,0 +1,11 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: patchpilot
+      POSTGRES_PASSWORD: patchpilot
+      POSTGRES_DB: patchpilot
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+volumes:
+  pgdata:

@@ -1,0 +1,55 @@
+{
+  "_note": "Constructed 2026-09-08 from OSV.dev record fields (id, aliases, summary, details, affected ranges, severity, dates). Re-record raw bytes with: PATCHPILOT_MODE=live PATCHPILOT_RECORD=1 patchpilot scan <repo>",
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "PyPI",
+        "name": "urllib3",
+        "purl": "pkg:pypi/urllib3"
+      },
+      "ranges": [
+        {
+          "events": [
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "1.26.19"
+            }
+          ],
+          "type": "ECOSYSTEM"
+        },
+        {
+          "events": [
+            {
+              "introduced": "2.0.0"
+            },
+            {
+              "fixed": "2.2.2"
+            }
+          ],
+          "type": "ECOSYSTEM"
+        }
+      ]
+    }
+  ],
+  "aliases": [
+    "CVE-2024-37891",
+    "PYSEC-2026-1995"
+  ],
+  "database_specific": {
+    "severity": "MODERATE"
+  },
+  "details": "When using urllib3's proxy support with ProxyManager, the Proxy-Authorization header is only sent to the configured proxy. However, when not using proxy support, the header may be accidentally configured and is not stripped during cross-origin redirects.",
+  "id": "GHSA-34jh-p97f-mpxf",
+  "modified": "2026-07-07T17:56:53Z",
+  "published": "2024-06-17T21:37:20Z",
+  "schema_version": "1.6.0",
+  "severity": [
+    {
+      "score": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:H/I:N/A:N",
+      "type": "CVSS_V3"
+    }
+  ],
+  "summary": "urllib3's Proxy-Authorization request header isn't stripped during cross-origin redirects"
+}

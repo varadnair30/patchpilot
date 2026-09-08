@@ -1,0 +1,44 @@
+{
+  "_note": "Constructed 2026-09-08 from OSV.dev record fields (id, aliases, summary, details, affected ranges, severity, dates). Re-record raw bytes with: PATCHPILOT_MODE=live PATCHPILOT_RECORD=1 patchpilot scan <repo>",
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "PyPI",
+        "name": "pyjwt",
+        "purl": "pkg:pypi/pyjwt"
+      },
+      "ranges": [
+        {
+          "events": [
+            {
+              "introduced": "2.10.0"
+            },
+            {
+              "fixed": "2.10.1"
+            }
+          ],
+          "type": "ECOSYSTEM"
+        }
+      ]
+    }
+  ],
+  "aliases": [
+    "CVE-2024-53861",
+    "PYSEC-2026-1814"
+  ],
+  "database_specific": {
+    "severity": "LOW"
+  },
+  "details": "The wrong string `if` check is run for `iss` checking, resulting in \"acb\" being accepted for \"_abc_\". Version 2.10.0 changed issuer validation from isinstance(issuer, list) to isinstance(issuer, Sequence); strings are sequences, so `in` performs substring matching rather than equality.",
+  "id": "GHSA-75c5-xw7c-p5pm",
+  "modified": "2026-07-07T17:56:51Z",
+  "published": "2024-12-02T18:34:11Z",
+  "schema_version": "1.6.0",
+  "severity": [
+    {
+      "score": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:N/I:L/A:N",
+      "type": "CVSS_V3"
+    }
+  ],
+  "summary": "pyjwt: `iss` claim check accepts substrings when issuer is a string"
+}

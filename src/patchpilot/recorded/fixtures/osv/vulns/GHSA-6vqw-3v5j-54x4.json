@@ -1,0 +1,44 @@
+{
+  "_note": "Constructed 2026-09-08 from OSV.dev record fields (id, aliases, summary, details, affected ranges, severity, dates). Re-record raw bytes with: PATCHPILOT_MODE=live PATCHPILOT_RECORD=1 patchpilot scan <repo>",
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "PyPI",
+        "name": "cryptography",
+        "purl": "pkg:pypi/cryptography"
+      },
+      "ranges": [
+        {
+          "events": [
+            {
+              "introduced": "38.0.0"
+            },
+            {
+              "fixed": "42.0.4"
+            }
+          ],
+          "type": "ECOSYSTEM"
+        }
+      ]
+    }
+  ],
+  "aliases": [
+    "CVE-2024-26130",
+    "PYSEC-2024-225"
+  ],
+  "database_specific": {
+    "severity": "HIGH"
+  },
+  "details": "A NULL pointer dereference crash occurs in pkcs12.serialize_key_and_certificates when invoked with a mismatched certificate and private key together with an hmac_hash override in the encryption settings.",
+  "id": "GHSA-6vqw-3v5j-54x4",
+  "modified": "2026-06-10T17:14:15Z",
+  "published": "2024-02-21T18:04:40Z",
+  "schema_version": "1.6.0",
+  "severity": [
+    {
+      "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "type": "CVSS_V3"
+    }
+  ],
+  "summary": "cryptography NULL pointer dereference with pkcs12.serialize_key_and_certificates when called with a non-matching certificate and private key and an hmac_hash override"
+}

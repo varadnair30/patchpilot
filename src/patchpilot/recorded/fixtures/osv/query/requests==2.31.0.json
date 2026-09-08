@@ -1,0 +1,7 @@
+{
+  "_note": "Fixture is a verified subset of OSV results for this version; live mode may return more.",
+  "ids": [
+    "GHSA-9wx4-h78v-vm56",
+    "GHSA-9hjg-9r4m-mvj7"
+  ]
+}

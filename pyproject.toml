@@ -1,0 +1,55 @@
+[project]
+name = "patchpilot"
+version = "0.1.0"
+description = "Human-gated dependency-vulnerability triage and remediation, built on LangGraph with a LangSmith-gated regression suite."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Varad Nair" }]
+dependencies = [
+  "langgraph>=1.0",
+  "langchain-core>=0.3",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "httpx>=0.27",
+  "packaging>=24.0",
+  "pyyaml>=6.0",
+  "typer>=0.12",
+  "rich>=13.7",
+]
+
+[project.optional-dependencies]
+llm = ["langchain-openai>=0.2", "langsmith>=0.1"]
+postgres = ["langgraph-checkpoint-postgres>=2.0", "psycopg[binary]>=3.1"]
+dev = ["pytest>=8.0", "ruff>=0.5", "mypy>=1.10"]
+
+[project.scripts]
+patchpilot = "patchpilot.cli.main:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+patchpilot = ["recorded/fixtures/**/*.json", "policy/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["B008"]  # typer.Argument/Option defaults are idiomatic
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true

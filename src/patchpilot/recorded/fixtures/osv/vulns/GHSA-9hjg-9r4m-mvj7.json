@@ -1,0 +1,44 @@
+{
+  "_note": "Constructed 2026-09-08 from OSV.dev record fields (id, aliases, summary, details, affected ranges, severity, dates). Re-record raw bytes with: PATCHPILOT_MODE=live PATCHPILOT_RECORD=1 patchpilot scan <repo>",
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "PyPI",
+        "name": "requests",
+        "purl": "pkg:pypi/requests"
+      },
+      "ranges": [
+        {
+          "events": [
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "2.32.4"
+            }
+          ],
+          "type": "ECOSYSTEM"
+        }
+      ]
+    }
+  ],
+  "aliases": [
+    "CVE-2024-47081",
+    "PYSEC-2026-1872"
+  ],
+  "database_specific": {
+    "severity": "MODERATE"
+  },
+  "details": "Due to a URL parsing issue, Requests releases prior to 2.32.4 may leak .netrc credentials to third parties for specific maliciously-crafted URLs.",
+  "id": "GHSA-9hjg-9r4m-mvj7",
+  "modified": "2026-07-07T17:56:56Z",
+  "published": "2025-06-09T19:06:08Z",
+  "schema_version": "1.6.0",
+  "severity": [
+    {
+      "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N",
+      "type": "CVSS_V3"
+    }
+  ],
+  "summary": "Requests vulnerable to .netrc credentials leak via malicious URLs"
+}

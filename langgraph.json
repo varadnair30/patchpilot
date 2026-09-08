@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "patchpilot": "./src/patchpilot/graph/build.py:graph"
+  },
+  "env": ".env"
+}

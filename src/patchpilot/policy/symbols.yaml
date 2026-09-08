@@ -1,0 +1,50 @@
+# Curated vulnerable-symbol overlay.
+#
+# OSV and the GitHub Advisory DB rarely name the affected function for PyPI packages, so
+# reachability would otherwise stop at "the package is imported". This file maps an advisory id to
+# the dotted symbols (or bare names, for things like Jinja filters) whose use puts the vulnerable
+# code path within reach. Entries are written from the advisory text and the fixing commit.
+#
+# An advisory with no entry here gets import-level reachability at confidence 0.5 (see reach_ast).
+# Adding an entry is a reviewed change: it moves decisions, so it goes through the golden-set gate.
+
+GHSA-75c5-xw7c-p5pm:   # pyjwt: `iss` substring match when issuer is a str  (fixed 2.10.1)
+  - jwt.decode
+  - jwt.api_jwt.decode
+GHSA-9wx4-h78v-vm56:   # requests: Session keeps verify=False after first request (fixed 2.32.0)
+  - requests.Session
+  - requests.session
+  - requests.sessions.Session
+GHSA-9hjg-9r4m-mvj7:   # requests: .netrc credential leak via crafted URL (fixed 2.32.4)
+  - requests.get
+  - requests.post
+  - requests.put
+  - requests.request
+  - requests.Session
+GHSA-h75v-3vvj-5mfj:   # jinja2: xmlattr filter key injection (fixed 3.1.4)
+  - xmlattr
+GHSA-44wm-f244-xhp3:   # pillow: buffer overflow in _imagingcms (fixed 10.3.0)
+  - PIL.ImageCms
+GHSA-fj7x-q9j7-g6q6:   # black: ReDoS in lines_with_leading_tabs_expanded (fixed 24.3.0)
+  - black.strings.lines_with_leading_tabs_expanded
+  - black.format_str
+GHSA-f96h-pmfr-66vw:   # starlette: unbounded multipart form buffering (fixed 0.40.0)
+  - starlette.requests.Request.form
+  - fastapi.Form
+  - fastapi.File
+  - fastapi.UploadFile
+GHSA-59g5-xgcq-4qw3:   # python-multipart: boundary DoS (fixed 0.0.18)
+  - fastapi.Form
+  - fastapi.File
+  - fastapi.UploadFile
+  - multipart.MultipartParser
+GHSA-2jv5-9r88-3w3p:   # python-multipart: Content-Type header ReDoS (fixed 0.0.7)
+  - fastapi.Form
+  - fastapi.File
+  - fastapi.UploadFile
+  - multipart.parse_options_header
+GHSA-34jh-p97f-mpxf:   # urllib3: Proxy-Authorization not stripped on cross-origin redirect (fixed 2.2.2)
+  - urllib3.ProxyManager
+  - urllib3.proxy_from_url
+GHSA-6vqw-3v5j-54x4:   # cryptography: NULL deref in pkcs12.serialize_key_and_certificates (fixed 42.0.4)
+  - cryptography.hazmat.primitives.serialization.pkcs12.serialize_key_and_certificates

@@ -1,0 +1,57 @@
+# Package tiers. A package in a *sensitive* tier can never be auto-fixed and can never be classified
+# not_applicable by static analysis alone: it always routes to a human, even when the vulnerable
+# symbol is not reached, because the cost of a false "not reachable" is highest here.
+#
+# Names are canonical PyPI distribution names. Anything not listed is tier "default".
+# Changing this file moves decisions and goes through the golden-set gate like code.
+
+sensitive:
+  auth:
+    - pyjwt
+    - python-jose
+    - authlib
+    - passlib
+    - itsdangerous
+    - oauthlib
+    - requests-oauthlib
+    - django-allauth
+    - fastapi-users
+  crypto:
+    - cryptography
+    - pycryptodome
+    - pycryptodomex
+    - pyopenssl
+    - bcrypt
+    - argon2-cffi
+    - nacl
+    - pynacl
+  serialization:
+    - pyyaml
+    - ruamel-yaml
+    - msgpack
+    - dill
+    - cloudpickle
+    - jsonpickle
+    - lxml
+    - defusedxml
+    - xmltodict
+  web-framework:
+    - django
+    - flask
+    - starlette
+    - fastapi
+    - werkzeug
+    - tornado
+    - aiohttp
+
+# Non-sensitive tiers exist for reporting only; they do not change routing.
+informational:
+  http-client:
+    - requests
+    - urllib3
+    - httpx
+  templating:
+    - jinja2
+    - mako
+  media:
+    - pillow

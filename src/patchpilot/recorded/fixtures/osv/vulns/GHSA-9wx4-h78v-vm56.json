@@ -1,0 +1,44 @@
+{
+  "_note": "Constructed 2026-09-08 from OSV.dev record fields (id, aliases, summary, details, affected ranges, severity, dates). Re-record raw bytes with: PATCHPILOT_MODE=live PATCHPILOT_RECORD=1 patchpilot scan <repo>",
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "PyPI",
+        "name": "requests",
+        "purl": "pkg:pypi/requests"
+      },
+      "ranges": [
+        {
+          "events": [
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "2.32.0"
+            }
+          ],
+          "type": "ECOSYSTEM"
+        }
+      ]
+    }
+  ],
+  "aliases": [
+    "CVE-2024-35195",
+    "PYSEC-2026-1873"
+  ],
+  "database_specific": {
+    "severity": "MODERATE"
+  },
+  "details": "When using a requests.Session, if the first request to a given origin is made with verify=False, TLS certificate verification may remain disabled for all subsequent requests to that origin, even if verify=True is explicitly specified, because the connection pool caches the setting.",
+  "id": "GHSA-9wx4-h78v-vm56",
+  "modified": "2026-07-07T17:57:17Z",
+  "published": "2024-05-20T20:15:00Z",
+  "schema_version": "1.6.0",
+  "severity": [
+    {
+      "score": "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:U/C:H/I:H/A:N",
+      "type": "CVSS_V3"
+    }
+  ],
+  "summary": "Requests `Session` object does not verify requests after making first request with verify=False"
+}

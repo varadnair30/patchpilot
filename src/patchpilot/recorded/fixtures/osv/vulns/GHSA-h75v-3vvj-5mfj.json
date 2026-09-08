@@ -1,0 +1,44 @@
+{
+  "_note": "Constructed 2026-09-08 from OSV.dev record fields (id, aliases, summary, details, affected ranges, severity, dates). Re-record raw bytes with: PATCHPILOT_MODE=live PATCHPILOT_RECORD=1 patchpilot scan <repo>",
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "PyPI",
+        "name": "jinja2",
+        "purl": "pkg:pypi/jinja2"
+      },
+      "ranges": [
+        {
+          "events": [
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "3.1.4"
+            }
+          ],
+          "type": "ECOSYSTEM"
+        }
+      ]
+    }
+  ],
+  "aliases": [
+    "CVE-2024-34064",
+    "PYSEC-2026-1474"
+  ],
+  "database_specific": {
+    "severity": "MODERATE"
+  },
+  "details": "The xmlattr filter accepts keys with non-attribute characters like spaces, forward slashes, greater-than symbols, or equals signs. This enables XSS attacks when applications accept user-supplied keys.",
+  "id": "GHSA-h75v-3vvj-5mfj",
+  "modified": "2026-07-07T17:57:30Z",
+  "published": "2024-05-06T14:20:59Z",
+  "schema_version": "1.6.0",
+  "severity": [
+    {
+      "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N",
+      "type": "CVSS_V3"
+    }
+  ],
+  "summary": "Jinja vulnerable to HTML attribute injection when passing user input as keys to xmlattr filter"
+}

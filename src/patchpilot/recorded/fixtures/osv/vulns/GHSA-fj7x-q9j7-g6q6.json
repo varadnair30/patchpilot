@@ -1,0 +1,44 @@
+{
+  "_note": "Constructed 2026-09-08 from OSV.dev record fields (id, aliases, summary, details, affected ranges, severity, dates). Re-record raw bytes with: PATCHPILOT_MODE=live PATCHPILOT_RECORD=1 patchpilot scan <repo>",
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "PyPI",
+        "name": "black",
+        "purl": "pkg:pypi/black"
+      },
+      "ranges": [
+        {
+          "events": [
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "24.3.0"
+            }
+          ],
+          "type": "ECOSYSTEM"
+        }
+      ]
+    }
+  ],
+  "aliases": [
+    "CVE-2024-21503",
+    "PYSEC-2024-48"
+  ],
+  "database_specific": {
+    "severity": "MODERATE"
+  },
+  "details": "Versions of the package black before 24.3.0 are vulnerable to Regular Expression Denial of Service (ReDoS) via the lines_with_leading_tabs_expanded function in the strings.py file. An attacker could exploit this vulnerability by crafting a malicious input that causes a denial of service.",
+  "id": "GHSA-fj7x-q9j7-g6q6",
+  "modified": "2026-02-04T03:39:28Z",
+  "published": "2024-03-19T06:30:52Z",
+  "schema_version": "1.6.0",
+  "severity": [
+    {
+      "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+      "type": "CVSS_V3"
+    }
+  ],
+  "summary": "Black vulnerable to Regular Expression Denial of Service (ReDoS)"
+}

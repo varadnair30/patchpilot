@@ -1,0 +1,8 @@
+<!doctype html>
+<html>
+  <body>
+    <p>Hi {{ user.name | default(user.sub) }},</p>
+    <p>We received <strong>{{ title }}</strong>.</p>
+    <p>Receipt: <code>{{ receipt }}</code></p>
+  </body>
+</html>
