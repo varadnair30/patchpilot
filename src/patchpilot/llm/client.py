@@ -30,10 +30,24 @@ def llm_enabled() -> bool:
     )
 
 
+class MissingLLMExtra(RuntimeError):
+    """A key is configured but langchain-openai is not installed."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "OPENAI_API_KEY is set but langchain-openai is not installed. Either install the "
+            'extra:  pip install -e ".[llm]"   or run the deterministic path with '
+            "PATCHPILOT_LLM=off"
+        )
+
+
 def get_chat_model(model: str | None = None, temperature: float = 0.0) -> Any | None:
     if not llm_enabled():
         return None
-    from langchain_openai import ChatOpenAI
+    try:
+        from langchain_openai import ChatOpenAI
+    except ImportError as e:
+        raise MissingLLMExtra from e
 
     return ChatOpenAI(model=model or get_settings().model_primary, temperature=temperature)
 
@@ -42,7 +56,10 @@ def get_embeddings_model(model: str | None = None) -> Any | None:
     """OpenAIEmbeddings for the configured model, or None when the LLM is off."""
     if not llm_enabled():
         return None
-    from langchain_openai import OpenAIEmbeddings
+    try:
+        from langchain_openai import OpenAIEmbeddings
+    except ImportError as e:
+        raise MissingLLMExtra from e
 
     return OpenAIEmbeddings(model=model or get_settings().model_embeddings)
 

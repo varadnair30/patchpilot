@@ -105,5 +105,13 @@ def build_graph(
     return g.compile(checkpointer=checkpointer or InMemorySaver())
 
 
-# LangGraph Studio / `langgraph dev` entry point
-graph = build_graph()
+def __getattr__(name: str):
+    """LangGraph Studio / `langgraph dev` entry point, built on first access.
+
+    Importing this module must stay free of side effects. Building the graph eagerly constructed an
+    OpenAI client at import time, so a missing `[llm]` extra — or a bad key — took down every
+    command, including `patchpilot queue list`, which never touches a model.
+    """
+    if name == "graph":
+        return build_graph()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
