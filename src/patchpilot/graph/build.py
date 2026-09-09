@@ -1,15 +1,19 @@
 """Graph wiring.
 
-Step 4 shape:
+Step 5 shape:
 
     START -> ingest -> [Send: advisory x N] -> collect -> END
 
     advisory (subgraph, one run per advisory, own AdvisoryBranch state):
-        reachability -> risk_policy -> justify
+        reachability -> risk_policy -> justify -> (human_gate | END)
 
-The subgraph is where plan_remediation, human_gate and execute_pr are added next, so a human
-decision on one advisory never blocks the others. The checkpointer and the justifier are
-injectable: tests use InMemorySaver and a fake justifier; the worker uses PostgresSaver and OpenAI.
+`human_gate` calls `interrupt()`, so a branch can sit paused for days while the other branches of
+the same scan finish. That only works because each advisory is its own `Send()` branch: the
+interrupt belongs to one task, and `Command(resume={interrupt_id: ...})` wakes exactly that one.
+
+The subgraph is where plan_remediation and execute_pr are added next. The checkpointer and the
+justifier are injectable: tests use InMemorySaver and a fake justifier; the worker uses
+PostgresSaver (see storage/db.py) and OpenAI.
 """
 
 from __future__ import annotations
@@ -18,11 +22,12 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 
+from patchpilot.graph.nodes.human_gate import human_gate
 from patchpilot.graph.nodes.ingest import ingest
 from patchpilot.graph.nodes.justify import make_justify_node
 from patchpilot.graph.nodes.reachability import reachability
 from patchpilot.graph.nodes.risk_policy import risk_policy
-from patchpilot.graph.routing import fan_out_advisories
+from patchpilot.graph.routing import fan_out_advisories, route_after_justify
 from patchpilot.graph.state import AdvisoryBranch, ScanState, ScanSummary
 from patchpilot.llm.justify import JustifierFn, openai_justifier
 
@@ -48,10 +53,12 @@ def build_advisory_subgraph(justifier: JustifierFn | None):
     sg.add_node("reachability", reachability)
     sg.add_node("risk_policy", risk_policy)
     sg.add_node("justify", make_justify_node(justifier))
+    sg.add_node("human_gate", human_gate)
     sg.add_edge(START, "reachability")
     sg.add_edge("reachability", "risk_policy")
     sg.add_edge("risk_policy", "justify")
-    sg.add_edge("justify", END)
+    sg.add_conditional_edges("justify", route_after_justify, ["human_gate", END])
+    sg.add_edge("human_gate", END)
     return sg.compile()
 
 

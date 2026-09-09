@@ -1,8 +1,13 @@
 """PatchPilot command line.
 
-patchpilot scan <repo_path>            run ingest + reachability, print the table
+patchpilot scan <repo_path>            scan a repo; advisories that need a human pause durably
 patchpilot scan <repo_path> --json     machine-readable output
 patchpilot record <repo_path>          live mode + record fixtures (needs network)
+patchpilot queue …                     review what the scan paused (cli/queue.py)
+
+A scan writes its checkpoints to the store `storage/db.py` resolves (Postgres via DATABASE_URL,
+otherwise a local SQLite file), so the queue commands are separate processes reading the same
+durable state — the same relationship the worker and the approval API have in production.
 """
 
 from __future__ import annotations
@@ -16,24 +21,68 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from patchpilot.cli.queue import queue_app
+
 app = typer.Typer(add_completion=False, no_args_is_help=True)
+app.add_typer(queue_app, name="queue")
 console = Console(width=max(150, Console().width))
 
 
-def _run_scan(repo_path: Path, thread_id: str | None = None) -> dict:
-    from patchpilot.graph.build import build_graph
-    from patchpilot.graph.state import RepoRef
+def _run_scan(repo_path: Path, thread_id: str | None = None) -> tuple[str, dict, list]:
+    """Run one scan to completion or to its first set of human gates.
 
-    graph = build_graph()
+    Returns (scan_id, final state, gates still awaiting a human).
+    """
+    from patchpilot.graph.build import build_graph
+    from patchpilot.graph.queue import pending_gates
+    from patchpilot.graph.state import RepoRef
+    from patchpilot.storage.db import open_checkpointer
+
     scan_id = thread_id or str(uuid.uuid4())
-    result = graph.invoke(
-        {"scan_id": scan_id, "repo": RepoRef(path=str(repo_path.resolve()))},
-        config={"configurable": {"thread_id": scan_id}},
+    with open_checkpointer() as saver:
+        graph = build_graph(saver)
+        result = graph.invoke(
+            {"scan_id": scan_id, "repo": RepoRef(path=str(repo_path.resolve()))},
+            config={"configurable": {"thread_id": scan_id}},
+        )
+        gates = pending_gates(graph, scan_id)
+    return scan_id, result, gates
+
+
+def _paused_row(payload) -> object:
+    """Render a branch that is parked at its human gate as an advisory row.
+
+    Its writes have not reached the parent state yet — that is what "paused" means — so the scan
+    table reads them back out of the interrupt payload instead.
+    """
+    from patchpilot.graph.state import AdvisoryState, Risk
+
+    return AdvisoryState(
+        advisory_id=payload.advisory_id,
+        package=payload.package,
+        installed_version=payload.installed_version,
+        min_fixed_version=payload.min_fixed_version,
+        bump_kind=payload.bump_kind,
+        is_dev=payload.is_dev,
+        cvss=payload.cvss,
+        severity_label=payload.severity_label,
+        epss=payload.epss,
+        reachability=payload.reachability,
+        risk=Risk(
+            score=payload.risk_score,
+            tier=payload.risk_tier,
+            triggers=payload.triggers,
+            package_tier=payload.package_tier,
+        ),
+        justification=payload.justification,
+        justification_evidence=payload.justification_evidence,
     )
-    return result
 
 
 def _decision_label(a) -> str:
+    if a.human:
+        colour = "green" if a.human.verdict == "approve" else "red"
+        return f"[{colour}]{a.human.verdict}d by {a.human.reviewer}[/{colour}]"
     if a.decision:
         colors = {"halted": "red", "not_applicable": "green", "accept_risk": "green"}
         return f"[{colors.get(a.decision, 'white')}]{a.decision}[/]"
@@ -66,21 +115,31 @@ def scan(
     ),
     as_json: bool = typer.Option(False, "--json", help="Print the final state as JSON"),
     mode: str | None = typer.Option(None, help="recorded | live (overrides PATCHPILOT_MODE)"),
+    thread: str | None = typer.Option(
+        None, "--thread", help="Scan id / checkpointer thread (default: a fresh UUID)"
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Print reasons and justifications"),
 ) -> None:
     if mode:
         os.environ["PATCHPILOT_MODE"] = mode
-    result = _run_scan(repo_path)
-    advisories = result.get("advisories", [])
+    scan_id, result, gates = _run_scan(repo_path, thread)
+    # A branch parked at its gate has published nothing back to the parent, so `advisories` still
+    # holds that advisory as `ingest` left it. Show the reviewer what the branch actually knows.
+    paused = {g.payload.advisory_id: _paused_row(g.payload) for g in gates}
+    finished = [a for a in result.get("advisories", []) if a.advisory_id not in paused]
+    advisories = [paused.get(a.advisory_id, a) for a in result.get("advisories", [])]
+    seen = {a.advisory_id for a in advisories}
+    advisories += [row for aid, row in paused.items() if aid not in seen]
 
     if as_json:
         payload = {
-            "scan_id": result.get("scan_id"),
+            "scan_id": scan_id,
             "summary": result["summary"].model_dump() if result.get("summary") else None,
             "data_freshness": result["data_freshness"].model_dump(mode="json")
             if result.get("data_freshness")
             else None,
-            "advisories": [a.model_dump(mode="json") for a in advisories],
+            "advisories": [a.model_dump(mode="json") for a in finished],
+            "awaiting_human": [g.payload.model_dump(mode="json") for g in gates],
             "errors": result.get("errors", []),
         }
         console.print_json(json.dumps(payload))
@@ -88,13 +147,14 @@ def scan(
 
     fresh = result.get("data_freshness")
     console.print(
-        f"[bold]PatchPilot scan[/bold]  repo={repo_path}  mode={fresh.mode if fresh else '?'}  "
+        f"[bold]PatchPilot scan[/bold]  scan_id={scan_id}  repo={repo_path}  "
+        f"mode={fresh.mode if fresh else '?'}  "
         f"deps={len(result.get('dependencies', []))}  advisories={len(advisories)}"
     )
     table = Table(show_lines=False, header_style="bold")
+    table.add_column("advisory", no_wrap=True, min_width=20)
+    table.add_column("package", min_width=16)
     for col in (
-        "advisory",
-        "package",
         "installed → fix",
         "bump",
         "cvss",
@@ -108,6 +168,7 @@ def scan(
         table.add_column(col)
     for a in advisories:
         r = a.reachability
+        awaiting = a.advisory_id in paused
         table.add_row(
             a.advisory_id,
             a.package,
@@ -118,7 +179,7 @@ def scan(
             "dev" if a.is_dev else ("runtime" if r is None or r.is_runtime_dep else "test-only"),
             _reach_label(a),
             f"{a.risk.score:.1f} {a.risk.tier}" if a.risk else "-",
-            _decision_label(a),
+            "[yellow]awaiting human[/yellow]" if awaiting else _decision_label(a),
             ", ".join(a.risk.triggers) if a.risk and a.risk.triggers else "",
         )
     console.print(table)
@@ -129,6 +190,17 @@ def scan(
                 console.print(f"  · {reason}")
             console.print(f"  [dim]justification:[/dim] {a.justification}")
             console.print(f"  [dim]cites:[/dim] {', '.join(a.justification_evidence)}")
+            if a.human:
+                console.print(
+                    f"  [dim]human:[/dim] {a.human.verdict} by {a.human.reviewer} "
+                    f"at {a.human.decided_at:%Y-%m-%d %H:%M:%SZ} — {a.human.note or 'no note'}"
+                )
+    if gates:
+        console.print(
+            f"[yellow]{len(gates)} advisory(ies) awaiting human approval[/yellow] — "
+            f"run [bold]patchpilot queue list[/bold], then "
+            f"[bold]patchpilot queue approve <advisory-id>[/bold]"
+        )
     if result.get("summary"):
         console.print("summary:", result["summary"].counts)
     if result.get("budget"):
@@ -148,9 +220,9 @@ def record(
     from patchpilot.config import get_settings
 
     get_settings.cache_clear()
-    result = _run_scan(repo_path)
+    _, result, gates = _run_scan(repo_path)
     console.print(
-        f"recorded fixtures for {len(result.get('advisories', []))} advisories under "
+        f"recorded fixtures for {len(result.get('advisories', [])) + len(gates)} advisories under "
         f"{get_settings().fixtures_dir}"
     )
 

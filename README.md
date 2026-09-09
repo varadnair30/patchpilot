@@ -18,8 +18,8 @@ Full design: [docs/DESIGN.md](docs/DESIGN.md) · decisions: [docs/adr](docs/adr)
 | 2 | OSV + EPSS clients with recorded/live modes, curated symbol overlay | done |
 | 3 | graph: `ingest → Send(advisory subgraph) × N → collect`, CLI `patchpilot scan` | done |
 | 4 | `risk_policy` (deterministic rules, YAML thresholds/tiers) + `justify` (OpenAI, citation-checked, template fallback, budget meter) | done |
-| 5 | `human_gate` with `interrupt()` + PostgresSaver + CLI approval queue | next |
-| 6 | `plan_remediation`: resolver, changelog retrieval, Docker sandbox baseline diff | |
+| 5 | `human_gate` with `interrupt()`, Postgres/SQLite checkpointer + ledger, CLI approval queue | done |
+| 6 | `plan_remediation`: resolver, changelog retrieval, Docker sandbox baseline diff | next |
 | 7 | `execute_pr`, allowlist, secret scan | |
 | 8 | golden set, evaluators, CI gate | |
 
@@ -28,8 +28,16 @@ Full design: [docs/DESIGN.md](docs/DESIGN.md) · decisions: [docs/adr](docs/adr)
 ```bash
 pip install -e ".[dev]"
 patchpilot scan fixtures/patchpilot-demo-app        # recorded mode: zero network
-pytest                                              # 62 tests, all offline, LLM off
+patchpilot queue list                               # the 3 advisories the policy gated
+patchpilot queue show GHSA-75c5-xw7c-p5pm           # the evidence bundle, on one screen
+patchpilot queue approve GHSA-75c5-xw7c-p5pm --note "reachable in app/auth.py"
+pytest                                              # 125 tests, all offline, LLM off
 ```
+
+The scan pauses at a durable `interrupt()` for every advisory the deterministic policy gated, and
+each advisory is its own branch, so approving one never touches the others — the process can exit
+between the scan and the approval. Checkpoints and the decision ledger go to Postgres when
+`DATABASE_URL` is set, and to a local SQLite file (`.patchpilot/checkpoints.sqlite`) otherwise.
 
 Set `OPENAI_API_KEY` to have `gpt-4o-mini` write the justifications (a few cents per scan);
 without it the graph uses a deterministic template and costs nothing. Decisions are identical

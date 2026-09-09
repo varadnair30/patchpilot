@@ -21,7 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 llm = ["langchain-openai>=0.2", "langsmith>=0.1"]
 postgres = ["langgraph-checkpoint-postgres>=2.0", "psycopg[binary]>=3.1"]
-dev = ["pytest>=8.0", "ruff>=0.5", "mypy>=1.10"]
+dev = ["pytest>=8.0", "ruff>=0.5", "mypy>=1.10", "langgraph-checkpoint-sqlite>=2.0"]
 
 [project.scripts]
 patchpilot = "patchpilot.cli.main:app"

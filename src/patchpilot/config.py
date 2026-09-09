@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -24,6 +25,12 @@ class Settings(BaseSettings):
     osv_base_url: str = "https://api.osv.dev/v1"
     epss_base_url: str = "https://api.first.org/data/v1/epss"
     http_timeout_seconds: float = 20.0
+
+    # Durable state (step 5). DATABASE_URL is deliberately un-prefixed: it is the standard name
+    # every host injects. With it unset, checkpoints and the decision ledger live in a local
+    # SQLite file, so `patchpilot scan` then `patchpilot queue approve` works with no setup.
+    database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
+    checkpoint_db: Path = Path(".patchpilot") / "checkpoints.sqlite"
 
     model_primary: str = "gpt-4o-mini"
     model_judge: str = "gpt-4o"
