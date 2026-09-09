@@ -38,6 +38,15 @@ def get_chat_model(model: str | None = None, temperature: float = 0.0) -> Any | 
     return ChatOpenAI(model=model or get_settings().model_primary, temperature=temperature)
 
 
+def get_embeddings_model(model: str | None = None) -> Any | None:
+    """OpenAIEmbeddings for the configured model, or None when the LLM is off."""
+    if not llm_enabled():
+        return None
+    from langchain_openai import OpenAIEmbeddings
+
+    return OpenAIEmbeddings(model=model or get_settings().model_embeddings)
+
+
 def usage_cost(model: str, usage: dict[str, Any] | None) -> Budget:
     """Budget delta for one call. Unknown models are priced like gpt-4o to stay conservative."""
     if not usage:

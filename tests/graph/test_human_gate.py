@@ -6,7 +6,7 @@ point of these tests is that adding a human in the loop moves *nothing* upstream
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
-from test_ingest_reachability import EXPECTED, EXPECTED_SUMMARY
+from test_ingest_reachability import EXPECTED, EXPECTED_SUMMARY, GATED
 
 from patchpilot.graph.build import build_graph
 from patchpilot.graph.nodes.human_gate import GatePayload, ResumeCommand
@@ -15,9 +15,9 @@ from patchpilot.graph.state import Budget, RepoRef
 from patchpilot.llm.justify import Justification
 from patchpilot.storage.db import open_checkpointer
 
-# The advisories the deterministic policy raised gate triggers for. Derived from the golden file
-# so it can never silently drift from it.
-GATED = {aid for aid, expected in EXPECTED.items() if expected[6]}
+# GATED is imported from the golden file so it can never silently drift from it. Since step 6 it
+# is every advisory the deterministic policy landed on `needs_human` — which now includes requests,
+# gated by its minor bump, a trigger risk_policy never saw.
 UNGATED = set(EXPECTED) - GATED
 
 
@@ -45,19 +45,22 @@ def approve(graph, thread, gate, reviewer="alice", note=""):
 # ------------------------------------------------------------------ pausing
 
 
-def test_three_advisories_pause_at_the_gate(demo_app):
-    assert len(GATED) == 3, "the fixture must keep exercising the gate"
+def test_every_needs_human_advisory_pauses_at_the_gate(demo_app):
+    assert len(GATED) == 5, "the fixture must keep exercising the gate"
     graph = build_graph(InMemorySaver(), justifier=None)
     result = start_scan(graph, demo_app, "gate-1")
 
     interrupts = result["__interrupt__"]
-    assert len(interrupts) == 3
+    assert len(interrupts) == len(GATED)
     payloads = [GatePayload.model_validate(i.value) for i in interrupts]
     assert {p.advisory_id for p in payloads} == GATED
     for p in payloads:
         assert p.scan_id == "gate-1"
         assert p.decision == "needs_human"
-        assert p.triggers == EXPECTED[p.advisory_id][6]
+        # `risk_triggers` is what risk_policy produced; `triggers` adds plan_remediation's, so
+        # requests appears here with `minor_bump` and no risk trigger at all.
+        assert p.risk_triggers == EXPECTED[p.advisory_id][6]
+        assert set(p.triggers) >= set(p.risk_triggers) and p.triggers
         assert p.justification and p.justification_evidence
         assert p.evidence, "the reviewer gets the same evidence bundle the justifier saw"
 
@@ -69,8 +72,8 @@ def test_pending_gates_reads_the_queue_back_out_of_the_checkpointer(demo_app):
     gates = pending_gates(graph, "gate-2")
     assert {g.payload.advisory_id for g in gates} == GATED
     assert all(g.thread_id == "gate-2" for g in gates)
-    assert len({g.interrupt_id for g in gates}) == 3, "each branch has its own interrupt id"
-    assert len({g.task_id for g in gates}) == 3
+    assert len({g.interrupt_id for g in gates}) == len(GATED), "one interrupt id per branch"
+    assert len({g.task_id for g in gates}) == len(GATED)
 
 
 def test_ungated_advisories_finish_while_the_others_wait(demo_app):
@@ -222,7 +225,7 @@ def test_a_new_graph_instance_on_a_new_connection_can_resume_a_gate(demo_app, tm
         graph = build_graph(saver, justifier=None)
         start_scan(graph, demo_app, thread)
         gates = sorted(pending_gates(graph, thread), key=lambda g: g.payload.advisory_id)
-        assert len(gates) == 3
+        assert len(gates) == len(GATED)
         target_id = gates[0].interrupt_id
         target_advisory = gates[0].payload.advisory_id
 

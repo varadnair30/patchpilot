@@ -34,3 +34,13 @@ gate:
   epss_human: 0.05            # actively exploited territory
   low_confidence: 0.70
   budget_warn_fraction: 0.80
+
+# After plan_remediation. auto_fix is granted only when every condition below holds; anything
+# else is a human's call. `max_bump` is the whole "how brave are we" dial: at "patch" only
+# patch-level bumps can merge unattended, which is DESIGN.md §3's rule. Widening it to "minor"
+# is a decision change and goes through the golden gate like any other.
+auto_fix:
+  max_bump: patch             # patch | minor | major
+  min_confidence: 0.70        # reachability confidence
+  budget_max_fraction: 0.80
+  require_clean_sandbox: true # a bump nobody could test is not an unattended bump

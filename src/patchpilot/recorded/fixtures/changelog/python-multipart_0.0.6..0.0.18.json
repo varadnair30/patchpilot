@@ -1,0 +1,48 @@
+{
+  "releases": [
+    {
+      "notes": "## What's Changed\r\n\r\n* Bump jinja2 from 2.11.3 to 3.1.3 by @dependabot in https://github.com/Kludex/python-multipart/pull/76\r\n* \u2705 Add ReDos check test by @tiangolo in https://github.com/Kludex/python-multipart/pull/81\r\n* Cleanup unused regex patterns by @tselepakis in https://github.com/Kludex/python-multipart/pull/82\r\n* Check if `Message.get_params` return 3-`tuple` instead of `str` on `parse_options_header` by @lorenpike in https://github.com/Kludex/python-multipart/pull/79\r\n* Version 0.0.8 by @Kludex in https://github.com/Kludex/python-multipart/pull/83\r\n\r\n## New Contributors\r\n* @tselepakis made their first contribution in https://github.com/Kludex/python-multipart/pull/82\r\n* @lorenpike made their first contribution in https://github.com/Kludex/python-multipart/pull/79\r\n\r\n**Full Changelog**: https://github.com/Kludex/python-multipart/compare/0.0.7...0.0.8",
+      "version": "0.0.8"
+    },
+    {
+      "notes": "* Add support for Python 3.12 [#85](https://github.com/Kludex/python-multipart/pull/85).\r\n* Drop support for Python 3.7 [#95](https://github.com/Kludex/python-multipart/pull/95).\r\n* Add `MultipartState(IntEnum)` [#96](https://github.com/Kludex/python-multipart/pull/96).\r\n* Add `QuerystringState` [#97](https://github.com/Kludex/python-multipart/pull/97).\r\n* Add `TypedDict` callbacks [#98](https://github.com/Kludex/python-multipart/pull/98).\r\n* Add config `TypedDict`s [#99](https://github.com/Kludex/python-multipart/pull/99).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/Kludex/python-multipart/compare/0.0.8...0.0.9",
+      "version": "0.0.9"
+    },
+    {
+      "notes": "## What's Changed\r\n\r\n* Support `on_header_begin` by @Kludex in https://github.com/Kludex/python-multipart/pull/103\r\n* Improve type hints on `FormParser` by @Kludex in https://github.com/Kludex/python-multipart/pull/104\r\n* Fix `OnFileCallback` type by @Kludex in https://github.com/Kludex/python-multipart/pull/106\r\n* Improve type hints by @Kludex in https://github.com/Kludex/python-multipart/pull/110\r\n* Improve type hints on `File` by @Kludex in https://github.com/Kludex/python-multipart/pull/111\r\n* Add type hint to helper functions by @Kludex in https://github.com/Kludex/python-multipart/pull/112\r\n* Minor fix for Field.__repr__ by @eltbus in https://github.com/Kludex/python-multipart/pull/114\r\n* Fix use of chunk_size parameter by @jhnstrk in https://github.com/Kludex/python-multipart/pull/136\r\n* Allow digits and valid token chars in headers by @jhnstrk in https://github.com/Kludex/python-multipart/pull/134\r\n* Fix headers being carried between parts. fixes #63 by @jhnstrk in https://github.com/Kludex/python-multipart/pull/135\r\n\r\n## New Contributors\r\n* @onuralpszr made their first contribution in https://github.com/Kludex/python-multipart/pull/108\r\n* @janusheide made their first contribution in https://github.com/Kludex/python-multipart/pull/119\r\n* @yecril23pl made their first contribution in https://github.com/Kludex/python-multipart/pull/121\r\n* @manunio made their first contribution in https://github.com/Kludex/python-multipart/pull/117\r\n* @jhnstrk made their first contribution in https://github.com/Kludex/python-multipart/pull/136\r\n\r\n**Full Changelog**: https://github.com/Kludex/python-multipart/compare/0.0.9...0.0.10",
+      "version": "0.0.10"
+    },
+    {
+      "notes": "## What's Changed\r\n* Handle invalid CRLF in header name.  fixes #122 by @jhnstrk in https://github.com/Kludex/python-multipart/pull/141\r\n* Improve performance, especially in data with many CR-LF by @jhnstrk in https://github.com/Kludex/python-multipart/pull/137\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/Kludex/python-multipart/compare/0.0.10...0.0.11",
+      "version": "0.0.11"
+    },
+    {
+      "notes": "## What's Changed\r\n* Enforce 100% coverage by @Kludex in https://github.com/Kludex/python-multipart/pull/159\r\n* Add mypy strict typing by @jhnstrk in https://github.com/Kludex/python-multipart/pull/140\r\n* Improve error message when boundary character does not match by @yecril23pl in https://github.com/Kludex/python-multipart/pull/124\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/Kludex/python-multipart/compare/0.0.11...0.0.12",
+      "version": "0.0.12"
+    },
+    {
+      "notes": "## What's Changed\r\n* Rename import to python_multipart by @henryiii in https://github.com/Kludex/python-multipart/pull/166\r\n\r\n## New Contributors\r\n* @henryiii made their first contribution in https://github.com/Kludex/python-multipart/pull/166\r\n\r\n**Full Changelog**: https://github.com/Kludex/python-multipart/compare/0.0.12...0.0.13",
+      "version": "0.0.13"
+    },
+    {
+      "notes": "## What's Changed\r\n* fix: use alternate scheme for importing multipart by @henryiii in https://github.com/Kludex/python-multipart/pull/168\r\n\r\n\r\n**Full Changelog**: https://github.com/Kludex/python-multipart/compare/0.0.13...0.0.14",
+      "version": "0.0.14"
+    },
+    {
+      "notes": "## What's Changed\r\n\r\n* Replace `FutureWarning` to `PendingDeprecationWarning` [#174](https://github.com/Kludex/python-multipart/pull/174).\r\n* Add missing files to SDist [#171](https://github.com/Kludex/python-multipart/pull/171).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/Kludex/python-multipart/compare/0.0.14...0.0.15",
+      "version": "0.0.15"
+    },
+    {
+      "notes": "## What's Changed\r\n* Add dunder attributes to `multipart` package by @Kludex in https://github.com/Kludex/python-multipart/pull/177\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/Kludex/python-multipart/compare/0.0.15...0.0.16",
+      "version": "0.0.16"
+    },
+    {
+      "notes": "## What's Changed\r\n* Handle PermissionError in fallback code for old import name by @defnull in https://github.com/Kludex/python-multipart/pull/182\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/Kludex/python-multipart/compare/0.0.16...0.0.17",
+      "version": "0.0.17"
+    },
+    {
+      "notes": "## What's Changed\r\n\r\n* Hard break if found data after last boundary on `MultipartParser` by @Kludex in https://github.com/Kludex/python-multipart/pull/189\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/Kludex/python-multipart/compare/0.0.17...0.0.18",
+      "version": "0.0.18"
+    }
+  ]
+}

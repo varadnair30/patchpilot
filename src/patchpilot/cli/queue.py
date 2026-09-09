@@ -73,7 +73,8 @@ def list_pending(thread: str | None = THREAD_OPTION) -> None:
             g.thread_id,
             p.advisory_id,
             p.package,
-            f"{p.installed_version} → {p.min_fixed_version or '-'}",
+            f"{p.installed_version} → "
+            f"{(p.plan.target_version if p.plan else None) or p.min_fixed_version or '-'}",
             p.bump_kind or "-",
             f"{p.risk_score:.1f} {p.risk_tier}",
             ", ".join(p.triggers),
@@ -106,6 +107,40 @@ def render_bundle(gate: PendingGate) -> None:
         )
         for site in r.call_sites[:5]:
             console.print(f"  · {site.file}:{site.line}  {site.symbol}  [dim]{site.snippet}[/dim]")
+
+    if p.plan:
+        console.print(
+            f"\n[bold]plan[/bold]  {p.package} {p.installed_version} → "
+            f"[green]{p.plan.target_version}[/green] ({p.plan.bump_kind} bump)"
+        )
+        for conflict in p.plan.dependency_conflicts:
+            console.print(f"  [red]conflict:[/red] {conflict}")
+        for change in p.plan.breaking_changes:
+            console.print(f"  [yellow]breaking:[/yellow] {change}")
+        if p.plan.breaking_change_citations:
+            console.print(
+                f"  [dim]cites chunks: {', '.join(p.plan.breaking_change_citations)}[/dim]"
+            )
+        for hit in p.plan.changelog_hits[:3]:
+            first_line = next(iter(hit.text.strip().splitlines()), "")[:120]
+            console.print(f"  [cyan]{hit.chunk_id}[/cyan] {first_line}")
+
+    if p.sandbox:
+        if not p.sandbox.supported:
+            console.print(f"\n[bold]sandbox[/bold]  [red]unproven[/red] — {p.sandbox.reason}")
+        else:
+            verdict = (
+                f"[red]{len(p.sandbox.newly_failing)} newly failing[/red]"
+                if p.sandbox.newly_failing
+                else "[green]no new failures[/green]"
+            )
+            console.print(f"\n[bold]sandbox[/bold]  {verdict}  ({p.sandbox.reason})")
+            for test in p.sandbox.newly_failing:
+                console.print(f"  [red]FAILED[/red] {test}")
+            for test in p.sandbox.baseline_failed:
+                console.print(f"  [dim]already red before the bump: {test}[/dim]")
+            for test in p.sandbox.flaky_rerun:
+                console.print(f"  [dim]passed on rerun, treated as flaky: {test}[/dim]")
 
     console.print("\n[bold]justification[/bold]")
     console.print(f"  {p.justification or '-'}")

@@ -1,0 +1,329 @@
+{
+  "name": "urllib3",
+  "versions": {
+    "0.2": {
+      "yanked": false
+    },
+    "0.3": {
+      "yanked": true
+    },
+    "0.3.1": {
+      "yanked": true
+    },
+    "0.4.0": {
+      "yanked": true
+    },
+    "0.4.1": {
+      "yanked": true
+    },
+    "1.0": {
+      "yanked": false
+    },
+    "1.0.1": {
+      "yanked": false
+    },
+    "1.0.2": {
+      "yanked": false
+    },
+    "1.1": {
+      "yanked": false
+    },
+    "1.10": {
+      "yanked": false
+    },
+    "1.10.1": {
+      "yanked": false
+    },
+    "1.10.2": {
+      "yanked": false
+    },
+    "1.10.3": {
+      "yanked": false
+    },
+    "1.10.4": {
+      "yanked": false
+    },
+    "1.11": {
+      "yanked": false
+    },
+    "1.12": {
+      "yanked": false
+    },
+    "1.13": {
+      "yanked": false
+    },
+    "1.13.1": {
+      "yanked": false
+    },
+    "1.14": {
+      "yanked": false
+    },
+    "1.15": {
+      "yanked": false
+    },
+    "1.15.1": {
+      "yanked": false
+    },
+    "1.16": {
+      "yanked": false
+    },
+    "1.17": {
+      "yanked": false
+    },
+    "1.18": {
+      "yanked": false
+    },
+    "1.18.1": {
+      "yanked": false
+    },
+    "1.19": {
+      "yanked": false
+    },
+    "1.19.1": {
+      "yanked": false
+    },
+    "1.2": {
+      "yanked": false
+    },
+    "1.2.1": {
+      "yanked": false
+    },
+    "1.2.2": {
+      "yanked": false
+    },
+    "1.20": {
+      "yanked": false
+    },
+    "1.21": {
+      "yanked": false
+    },
+    "1.21.1": {
+      "yanked": false
+    },
+    "1.22": {
+      "yanked": false
+    },
+    "1.23": {
+      "yanked": false
+    },
+    "1.24": {
+      "yanked": false
+    },
+    "1.24.1": {
+      "yanked": false
+    },
+    "1.24.2": {
+      "yanked": false
+    },
+    "1.24.3": {
+      "yanked": false
+    },
+    "1.25": {
+      "yanked": true
+    },
+    "1.25.1": {
+      "yanked": true
+    },
+    "1.25.10": {
+      "yanked": false
+    },
+    "1.25.11": {
+      "yanked": false
+    },
+    "1.25.2": {
+      "yanked": false
+    },
+    "1.25.3": {
+      "yanked": false
+    },
+    "1.25.4": {
+      "yanked": false
+    },
+    "1.25.5": {
+      "yanked": false
+    },
+    "1.25.6": {
+      "yanked": false
+    },
+    "1.25.7": {
+      "yanked": false
+    },
+    "1.25.8": {
+      "yanked": false
+    },
+    "1.25.9": {
+      "yanked": false
+    },
+    "1.26.0": {
+      "yanked": false
+    },
+    "1.26.1": {
+      "yanked": false
+    },
+    "1.26.10": {
+      "yanked": false
+    },
+    "1.26.11": {
+      "yanked": false
+    },
+    "1.26.12": {
+      "yanked": false
+    },
+    "1.26.13": {
+      "yanked": false
+    },
+    "1.26.14": {
+      "yanked": false
+    },
+    "1.26.15": {
+      "yanked": false
+    },
+    "1.26.16": {
+      "yanked": false
+    },
+    "1.26.17": {
+      "yanked": false
+    },
+    "1.26.18": {
+      "yanked": false
+    },
+    "1.26.19": {
+      "yanked": false
+    },
+    "1.26.2": {
+      "yanked": false
+    },
+    "1.26.20": {
+      "yanked": false
+    },
+    "1.26.3": {
+      "yanked": false
+    },
+    "1.26.4": {
+      "yanked": false
+    },
+    "1.26.5": {
+      "yanked": false
+    },
+    "1.26.6": {
+      "yanked": false
+    },
+    "1.26.7": {
+      "yanked": false
+    },
+    "1.26.8": {
+      "yanked": false
+    },
+    "1.26.9": {
+      "yanked": false
+    },
+    "1.3": {
+      "yanked": false
+    },
+    "1.4": {
+      "yanked": false
+    },
+    "1.5": {
+      "yanked": false
+    },
+    "1.6": {
+      "yanked": false
+    },
+    "1.7": {
+      "yanked": false
+    },
+    "1.7.1": {
+      "yanked": false
+    },
+    "1.8": {
+      "yanked": false
+    },
+    "1.8.2": {
+      "yanked": false
+    },
+    "1.8.3": {
+      "yanked": false
+    },
+    "1.9": {
+      "yanked": false
+    },
+    "1.9.1": {
+      "yanked": false
+    },
+    "2.0.0": {
+      "yanked": true
+    },
+    "2.0.0a1": {
+      "yanked": false
+    },
+    "2.0.0a2": {
+      "yanked": false
+    },
+    "2.0.0a3": {
+      "yanked": false
+    },
+    "2.0.0a4": {
+      "yanked": false
+    },
+    "2.0.1": {
+      "yanked": true
+    },
+    "2.0.2": {
+      "yanked": false
+    },
+    "2.0.3": {
+      "yanked": false
+    },
+    "2.0.4": {
+      "yanked": false
+    },
+    "2.0.5": {
+      "yanked": false
+    },
+    "2.0.6": {
+      "yanked": false
+    },
+    "2.0.7": {
+      "yanked": false
+    },
+    "2.1.0": {
+      "yanked": false
+    },
+    "2.2.0": {
+      "yanked": false
+    },
+    "2.2.1": {
+      "yanked": false
+    },
+    "2.2.2": {
+      "yanked": false
+    },
+    "2.2.3": {
+      "yanked": false
+    },
+    "2.3.0": {
+      "yanked": false
+    },
+    "2.4.0": {
+      "yanked": false
+    },
+    "2.5.0": {
+      "yanked": false
+    },
+    "2.6.0": {
+      "yanked": false
+    },
+    "2.6.1": {
+      "yanked": false
+    },
+    "2.6.2": {
+      "yanked": false
+    },
+    "2.6.3": {
+      "yanked": false
+    },
+    "2.7.0": {
+      "yanked": false
+    }
+  }
+}

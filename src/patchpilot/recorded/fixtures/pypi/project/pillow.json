@@ -1,0 +1,326 @@
+{
+  "name": "pillow",
+  "versions": {
+    "1.0": {
+      "yanked": false
+    },
+    "1.1": {
+      "yanked": false
+    },
+    "1.2": {
+      "yanked": false
+    },
+    "1.3": {
+      "yanked": false
+    },
+    "1.4": {
+      "yanked": false
+    },
+    "1.5": {
+      "yanked": false
+    },
+    "1.6": {
+      "yanked": false
+    },
+    "1.7.0": {
+      "yanked": false
+    },
+    "1.7.1": {
+      "yanked": false
+    },
+    "1.7.2": {
+      "yanked": false
+    },
+    "1.7.3": {
+      "yanked": false
+    },
+    "1.7.4": {
+      "yanked": false
+    },
+    "1.7.5": {
+      "yanked": false
+    },
+    "1.7.6": {
+      "yanked": false
+    },
+    "1.7.7": {
+      "yanked": false
+    },
+    "1.7.8": {
+      "yanked": false
+    },
+    "10.0.0": {
+      "yanked": false
+    },
+    "10.0.1": {
+      "yanked": false
+    },
+    "10.1.0": {
+      "yanked": false
+    },
+    "10.2.0": {
+      "yanked": false
+    },
+    "10.3.0": {
+      "yanked": false
+    },
+    "10.4.0": {
+      "yanked": false
+    },
+    "11.0.0": {
+      "yanked": false
+    },
+    "11.1.0": {
+      "yanked": false
+    },
+    "11.2.1": {
+      "yanked": false
+    },
+    "11.3.0": {
+      "yanked": false
+    },
+    "12.0.0": {
+      "yanked": false
+    },
+    "12.1.0": {
+      "yanked": false
+    },
+    "12.1.1": {
+      "yanked": false
+    },
+    "12.2.0": {
+      "yanked": false
+    },
+    "12.3.0": {
+      "yanked": false
+    },
+    "2.0.0": {
+      "yanked": false
+    },
+    "2.1.0": {
+      "yanked": false
+    },
+    "2.2.0": {
+      "yanked": false
+    },
+    "2.2.1": {
+      "yanked": false
+    },
+    "2.2.2": {
+      "yanked": false
+    },
+    "2.3.0": {
+      "yanked": false
+    },
+    "2.3.1": {
+      "yanked": false
+    },
+    "2.3.2": {
+      "yanked": false
+    },
+    "2.4.0": {
+      "yanked": false
+    },
+    "2.5.0": {
+      "yanked": false
+    },
+    "2.5.1": {
+      "yanked": false
+    },
+    "2.5.2": {
+      "yanked": false
+    },
+    "2.5.3": {
+      "yanked": false
+    },
+    "2.6.0": {
+      "yanked": false
+    },
+    "2.6.1": {
+      "yanked": false
+    },
+    "2.6.2": {
+      "yanked": false
+    },
+    "2.7.0": {
+      "yanked": false
+    },
+    "2.8.0": {
+      "yanked": false
+    },
+    "2.8.1": {
+      "yanked": false
+    },
+    "2.8.2": {
+      "yanked": false
+    },
+    "2.9.0": {
+      "yanked": false
+    },
+    "3.0.0": {
+      "yanked": false
+    },
+    "3.1.0": {
+      "yanked": false
+    },
+    "3.1.0.rc1": {
+      "yanked": false
+    },
+    "3.1.0rc1": {
+      "yanked": false
+    },
+    "3.1.1": {
+      "yanked": false
+    },
+    "3.1.2": {
+      "yanked": false
+    },
+    "3.2.0": {
+      "yanked": false
+    },
+    "3.3.0": {
+      "yanked": false
+    },
+    "3.3.1": {
+      "yanked": false
+    },
+    "3.3.2": {
+      "yanked": false
+    },
+    "3.3.3": {
+      "yanked": false
+    },
+    "3.4.0": {
+      "yanked": false
+    },
+    "3.4.1": {
+      "yanked": false
+    },
+    "3.4.2": {
+      "yanked": false
+    },
+    "4.0.0": {
+      "yanked": false
+    },
+    "4.1.0": {
+      "yanked": false
+    },
+    "4.1.1": {
+      "yanked": false
+    },
+    "4.2.0": {
+      "yanked": false
+    },
+    "4.2.1": {
+      "yanked": false
+    },
+    "4.3.0": {
+      "yanked": false
+    },
+    "5.0.0": {
+      "yanked": false
+    },
+    "5.1.0": {
+      "yanked": false
+    },
+    "5.2.0": {
+      "yanked": false
+    },
+    "5.3.0": {
+      "yanked": false
+    },
+    "5.4.0": {
+      "yanked": false
+    },
+    "5.4.0.dev0": {
+      "yanked": false
+    },
+    "5.4.1": {
+      "yanked": false
+    },
+    "6.0.0": {
+      "yanked": false
+    },
+    "6.1.0": {
+      "yanked": false
+    },
+    "6.2.0": {
+      "yanked": false
+    },
+    "6.2.1": {
+      "yanked": false
+    },
+    "6.2.2": {
+      "yanked": false
+    },
+    "7.0.0": {
+      "yanked": false
+    },
+    "7.1.0": {
+      "yanked": false
+    },
+    "7.1.1": {
+      "yanked": false
+    },
+    "7.1.2": {
+      "yanked": false
+    },
+    "7.2.0": {
+      "yanked": false
+    },
+    "8.0.0": {
+      "yanked": false
+    },
+    "8.0.1": {
+      "yanked": false
+    },
+    "8.1.0": {
+      "yanked": false
+    },
+    "8.1.1": {
+      "yanked": false
+    },
+    "8.1.2": {
+      "yanked": false
+    },
+    "8.2.0": {
+      "yanked": false
+    },
+    "8.3.0": {
+      "yanked": false
+    },
+    "8.3.1": {
+      "yanked": false
+    },
+    "8.3.2": {
+      "yanked": false
+    },
+    "8.4.0": {
+      "yanked": false
+    },
+    "9.0.0": {
+      "yanked": false
+    },
+    "9.0.1": {
+      "yanked": false
+    },
+    "9.1.0": {
+      "yanked": false
+    },
+    "9.1.1": {
+      "yanked": false
+    },
+    "9.2.0": {
+      "yanked": false
+    },
+    "9.3.0": {
+      "yanked": false
+    },
+    "9.4.0": {
+      "yanked": false
+    },
+    "9.5.0": {
+      "yanked": false
+    }
+  }
+}

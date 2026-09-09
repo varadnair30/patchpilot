@@ -1,0 +1,18 @@
+{
+  "requires_dist": [
+    "iniconfig",
+    "packaging",
+    "pluggy<2,>=1.5",
+    "exceptiongroup>=1.0.0rc8; python_version < \"3.11\"",
+    "tomli>=1; python_version < \"3.11\"",
+    "colorama; sys_platform == \"win32\"",
+    "argcomplete; extra == \"dev\"",
+    "attrs>=19.2; extra == \"dev\"",
+    "hypothesis>=3.56; extra == \"dev\"",
+    "mock; extra == \"dev\"",
+    "pygments>=2.7.2; extra == \"dev\"",
+    "requests; extra == \"dev\"",
+    "setuptools; extra == \"dev\"",
+    "xmlschema; extra == \"dev\""
+  ]
+}

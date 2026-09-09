@@ -219,3 +219,86 @@ def evaluate(
     return PolicyOutcome(
         Risk(score=score, tier=tier, triggers=triggers, package_tier=tier_name), None, bump, reasons
     )
+
+
+# --------------------------------------------------------------------------------------------
+# After plan_remediation
+# --------------------------------------------------------------------------------------------
+
+BUMP_RANK: dict[str, int] = {"patch": 0, "minor": 1, "major": 2}
+
+
+@dataclass(frozen=True)
+class PlanOutcome:
+    """The terminal decision, once a remediation plan and a sandbox diff exist."""
+
+    decision: str  # "auto_fix" | "needs_human"
+    triggers: list[str]  # everything that forced a human, policy triggers included
+    reasons: list[str]
+
+
+def decide_after_plan(
+    adv: AdvisoryState, budget_fraction: float = 0.0, policy: Policy | None = None
+) -> PlanOutcome:
+    """`auto_fix` only when every condition in thresholds.yaml:auto_fix holds. Nothing here looks
+    at LLM output: the plan's target version, the sandbox diff and the policy triggers decide."""
+    policy = policy or load_policy()
+    cfg = policy.thresholds["auto_fix"]
+    plan, sandbox, reach = adv.plan, adv.sandbox, adv.reachability
+    triggers = list(adv.risk.triggers) if adv.risk else []
+    reasons: list[str] = []
+
+    if plan is None or not plan.target_version:
+        reasons.append("no remediation plan: nothing to apply")
+        if "no_fix_available" not in triggers:
+            triggers.append("no_fix_available")
+        return PlanOutcome("needs_human", triggers, reasons)
+
+    bump = plan.bump_kind
+    ceiling = str(cfg["max_bump"])
+    if BUMP_RANK.get(bump, 2) > BUMP_RANK.get(ceiling, 0):
+        trigger = f"{bump}_bump"
+        if trigger not in triggers:
+            triggers.append(trigger)
+        reasons.append(f"{bump} bump exceeds the auto_fix ceiling of {ceiling}")
+    else:
+        reasons.append(f"{bump} bump is within the auto_fix ceiling of {ceiling}")
+
+    if plan.dependency_conflicts:
+        triggers.append("dependency_conflict")
+        reasons.append(
+            f"target {plan.target_version} conflicts with {len(plan.dependency_conflicts)} "
+            "other pin(s); the bump is not self-contained"
+        )
+
+    if cfg.get("require_clean_sandbox", True):
+        if sandbox is None or not sandbox.supported:
+            triggers.append("sandbox_unsupported")
+            reasons.append(
+                f"the bump could not be test-proven: {sandbox.reason if sandbox else 'not run'}"
+            )
+        elif sandbox.newly_failing:
+            triggers.append(f"tests_newly_failing:{len(sandbox.newly_failing)}")
+            reasons.append(
+                f"{len(sandbox.newly_failing)} test(s) fail after the bump that passed before: "
+                + ", ".join(sandbox.newly_failing[:5])
+            )
+        else:
+            reasons.append("test suite is no redder after the bump than before it")
+
+    confidence = reach.confidence if reach else 0.0
+    if confidence < float(cfg["min_confidence"]):
+        trigger = f"low_confidence:{confidence:.2f}"
+        if trigger not in triggers:
+            triggers.append(trigger)
+
+    if budget_fraction >= float(cfg["budget_max_fraction"]):
+        if "budget_near_limit" not in triggers:
+            triggers.append("budget_near_limit")
+
+    if triggers:
+        reasons.append("human gate required: " + ", ".join(triggers))
+        return PlanOutcome("needs_human", triggers, reasons)
+
+    reasons.append("all auto_fix conditions met; no human needed")
+    return PlanOutcome("auto_fix", triggers, reasons)
