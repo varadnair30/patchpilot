@@ -241,9 +241,11 @@ class AdvisoryBranch(TypedDict, total=False):
     """State of the per-advisory subgraph (one Send() branch per advisory).
 
     `advisory` is branch-local working state. The last node of the subgraph writes `advisories`
-    and `budget`, which the parent graph merges through its reducers.
+    and `budget`, which the parent graph merges through its reducers. `scan_id` is carried so the
+    human gate can stamp its interrupt payload and the decision ledger row.
     """
 
+    scan_id: str
     repo: RepoRef
     advisory: AdvisoryState
     budget_fraction: float

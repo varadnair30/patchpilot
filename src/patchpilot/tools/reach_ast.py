@@ -187,13 +187,13 @@ def analyze_reachability(inp: ReachabilityInput) -> ReachabilityOutput:
             source = py.read_text(encoding="utf-8")
             tree = ast.parse(source, filename=str(py))
         except (SyntaxError, UnicodeDecodeError) as e:
-            notes.append(f"skipped {py.relative_to(root)}: {e.__class__.__name__}")
+            notes.append(f"skipped {py.relative_to(root).as_posix()}: {e.__class__.__name__}")
             continue
         fa = _FileAnalysis(roots)
         fa.visit(tree)
         if not fa.import_lines:
             continue
-        rel = str(py.relative_to(root))
+        rel = py.relative_to(root).as_posix()
         is_test = _is_test_path(py, root)
         lines = source.splitlines()
         direct = [
@@ -236,7 +236,7 @@ def analyze_reachability(inp: ReachabilityInput) -> ReachabilityOutput:
                 text_lines = tpl.read_text(encoding="utf-8").splitlines()
             except UnicodeDecodeError:
                 continue
-            rel = str(tpl.relative_to(root))
+            rel = tpl.relative_to(root).as_posix()
             for i, line in enumerate(text_lines, start=1):
                 for sym in bare_symbols:
                     if re.search(rf"\b{re.escape(sym)}\b", line):

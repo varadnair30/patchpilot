@@ -2,11 +2,19 @@
 
 These expectations are the seed of the golden set: if any of them changes, a decision upstream of
 the human gate has moved, and that must be a deliberate, reviewed change.
+
+Since step 5 the scan no longer runs straight through: three advisories park at `human_gate`. The
+helpers below approve them so the run reaches `collect`. A verdict is recorded in
+`AdvisoryState.human` and never in `decision` (ADR-0002), so every expectation here is unchanged
+by the gate — which is exactly what these tests are for.
 """
 
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
 
 from patchpilot.graph.build import build_graph
+from patchpilot.graph.nodes.human_gate import ResumeCommand
+from patchpilot.graph.queue import pending_gates, resume_gate
 from patchpilot.graph.state import Budget, RepoRef
 from patchpilot.llm.justify import Justification
 
@@ -34,6 +42,9 @@ EXPECTED = {
     "GHSA-fj7x-q9j7-g6q6": (False, False, False, "24.3.0", "accept_risk", "major", []),
 }
 
+# The advisories the policy raised gate triggers for; they park at human_gate until approved.
+GATED = {aid for aid, expected in EXPECTED.items() if expected[6]}
+
 EXPECTED_SUMMARY = {
     "pending:needs_human": 3,
     "pending:auto_fix_candidate": 4,
@@ -42,12 +53,23 @@ EXPECTED_SUMMARY = {
 }
 
 
+def _approve_pending(graph, thread):
+    """Clear the human gates so the scan reaches `collect`. One resume per parked branch."""
+    while gates := pending_gates(graph, thread):
+        resume_gate(
+            graph,
+            thread,
+            gates[0].interrupt_id,
+            ResumeCommand(verdict="approve", reviewer="golden-test"),
+        )
+
+
 def _run(demo_app, justifier=None, thread="t1"):
     graph = build_graph(InMemorySaver(), justifier=justifier)
-    return graph.invoke(
-        {"scan_id": thread, "repo": RepoRef(path=str(demo_app))},
-        config={"configurable": {"thread_id": thread}},
-    )
+    config = {"configurable": {"thread_id": thread}}
+    graph.invoke({"scan_id": thread, "repo": RepoRef(path=str(demo_app))}, config=config)
+    _approve_pending(graph, thread)
+    return graph.get_state(config).values
 
 
 def test_scan_demo_app_matches_golden_expectations(demo_app):
@@ -109,18 +131,27 @@ def test_fake_justifier_runs_once_per_advisory_and_budget_is_summed(demo_app):
 
 
 def test_fan_out_runs_one_subgraph_per_advisory(demo_app):
-    """Each advisory must be processed on its own Send() branch so a future human gate on one
-    advisory never blocks the others."""
+    """Each advisory is processed on its own Send() branch, so a human gate on one advisory never
+    blocks the others: eight branches finish while three sit at their interrupt."""
     graph = build_graph(InMemorySaver(), justifier=None)
-    branch_runs = 0
-    for event in graph.stream(
-        {"scan_id": "t3", "repo": RepoRef(path=str(demo_app))},
-        config={"configurable": {"thread_id": "t3"}},
-        stream_mode="updates",
-    ):
-        if "advisory" in event:
-            branch_runs += 1
-    assert branch_runs == 11
+    config = {"configurable": {"thread_id": "t3"}}
+    finished: list[str] = []
+
+    def drain(payload):
+        for event in graph.stream(payload, config=config, stream_mode="updates"):
+            if "advisory" in event:
+                finished.extend(a.advisory_id for a in event["advisory"]["advisories"])
+
+    drain({"scan_id": "t3", "repo": RepoRef(path=str(demo_app))})
+    assert set(finished) == set(EXPECTED) - GATED, "the gated branches are parked, not finished"
+
+    while gates := pending_gates(graph, "t3"):
+        drain(
+            Command(
+                resume={gates[0].interrupt_id: {"verdict": "approve", "reviewer": "golden-test"}}
+            )
+        )
+    assert set(finished) == set(EXPECTED)
 
 
 def test_repo_without_advisories_short_circuits(tmp_repo):
@@ -139,6 +170,9 @@ def test_checkpoint_persists_state(demo_app):
     graph = build_graph(saver, justifier=None)
     cfg = {"configurable": {"thread_id": "t5"}}
     graph.invoke({"scan_id": "t5", "repo": RepoRef(path=str(demo_app))}, config=cfg)
+    assert graph.get_state(cfg).next == ("advisory",) * 3, "three branches wait for a human"
+
+    _approve_pending(graph, "t5")
     snapshot = graph.get_state(cfg)
     assert len(snapshot.values["advisories"]) == 11
     assert snapshot.next == ()
