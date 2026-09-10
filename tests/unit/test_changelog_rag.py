@@ -229,3 +229,33 @@ def test_a_missing_fixture_in_a_strict_namespace_is_still_a_missing_fixture(chan
     store = RecordedStore()
     with pytest.raises(MissingFixture):
         store.read("changelog", "nope/1.0.0..2.0.0")
+
+
+# ------------------------------------------------------------------ github authentication
+
+
+def test_a_token_is_sent_when_one_is_configured(monkeypatch):
+    """Anonymous release-note reads are capped at 60/hour; a token raises it to 5000."""
+    from patchpilot.tools.changelog_rag import github_headers
+
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_example_token_value")
+    headers = github_headers()
+    assert headers["Authorization"] == "Bearer ghp_example_token_value"
+    assert headers["Accept"] == "application/vnd.github+json"
+
+
+def test_no_token_still_produces_a_valid_anonymous_request(monkeypatch):
+    from patchpilot.tools.changelog_rag import github_headers
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    headers = github_headers()
+    assert "Authorization" not in headers
+    assert headers["Accept"] == "application/vnd.github+json"
+
+
+def test_a_blank_token_is_treated_as_absent(monkeypatch):
+    """An empty GITHUB_TOKEN= line in .env must not produce `Authorization: Bearer `."""
+    from patchpilot.tools.changelog_rag import github_headers
+
+    monkeypatch.setenv("GITHUB_TOKEN", "   ")
+    assert "Authorization" not in github_headers()

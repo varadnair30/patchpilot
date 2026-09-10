@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
 import re
 from typing import Any
 
@@ -101,6 +102,16 @@ def _source_repo(package: str) -> str | None:
     return None
 
 
+def github_headers() -> dict[str, str]:
+    """Release notes are public, but anonymous requests are capped at 60/hour. A token — any
+    token, no scopes needed — raises that to 5000, which is what re-recording fixtures needs."""
+    headers = {"Accept": "application/vnd.github+json"}
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
 def _live_releases(package: str, from_version: str, to_version: str) -> dict[str, Any]:
     """GitHub releases whose tag falls in (from, to]. Read-only, unauthenticated, public API."""
     from packaging.version import InvalidVersion, Version
@@ -127,7 +138,7 @@ def _live_releases(package: str, from_version: str, to_version: str) -> dict[str
             r = client.get(
                 f"https://api.github.com/repos/{repo}/releases",
                 params={"per_page": "100", "page": str(page)},
-                headers={"Accept": "application/vnd.github+json"},
+                headers=github_headers(),
             )
             r.raise_for_status()
             payload = r.json()
