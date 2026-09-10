@@ -26,13 +26,14 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 
+from patchpilot.graph.nodes.execute_pr import execute_pr
 from patchpilot.graph.nodes.human_gate import human_gate
 from patchpilot.graph.nodes.ingest import ingest
 from patchpilot.graph.nodes.justify import make_justify_node
 from patchpilot.graph.nodes.plan_remediation import make_plan_remediation_node
 from patchpilot.graph.nodes.reachability import reachability
 from patchpilot.graph.nodes.risk_policy import risk_policy
-from patchpilot.graph.routing import fan_out_advisories, route_to_human_gate
+from patchpilot.graph.routing import fan_out_advisories, route_after_gate, route_to_human_gate
 from patchpilot.graph.state import AdvisoryBranch, ScanState, ScanSummary
 from patchpilot.llm.changelog import SummariserFn, openai_summariser
 from patchpilot.llm.justify import JustifierFn, openai_justifier
@@ -61,12 +62,14 @@ def build_advisory_subgraph(justifier: JustifierFn | None, summariser: Summarise
     sg.add_node("plan_remediation", make_plan_remediation_node(summariser))
     sg.add_node("justify", make_justify_node(justifier))
     sg.add_node("human_gate", human_gate)
+    sg.add_node("execute_pr", execute_pr)
     sg.add_edge(START, "reachability")
     sg.add_edge("reachability", "risk_policy")
     sg.add_edge("risk_policy", "plan_remediation")
     sg.add_edge("plan_remediation", "justify")
-    sg.add_conditional_edges("justify", route_to_human_gate, ["human_gate", END])
-    sg.add_edge("human_gate", END)
+    sg.add_conditional_edges("justify", route_to_human_gate, ["human_gate", "execute_pr", END])
+    sg.add_conditional_edges("human_gate", route_after_gate, ["execute_pr", END])
+    sg.add_edge("execute_pr", END)
     return sg.compile()
 
 

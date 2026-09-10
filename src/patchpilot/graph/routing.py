@@ -21,6 +21,7 @@ def fan_out_advisories(state: ScanState) -> list[Send] | str:
             "advisory",
             {
                 "scan_id": state.get("scan_id"),
+                "data_freshness": state.get("data_freshness"),
                 "repo": repo,
                 "dependencies": state.get("dependencies") or [],
                 "advisory": adv,
@@ -32,10 +33,28 @@ def fan_out_advisories(state: ScanState) -> list[Send] | str:
 
 
 def route_to_human_gate(branch: AdvisoryBranch) -> str:
-    """Whether this advisory needs a human before anything else happens to it.
+    """After justify: a human, a pull request, or nothing.
 
-    Since step 6 the answer is simply the decision `plan_remediation` recorded: `policy/rules.py`
-    grants `auto_fix` only when the bump is within the YAML ceiling, the sandbox diff is clean and
-    no trigger fired. Everything else, terminal classes aside, is a reviewer's call.
+    The decision was settled by `policy.rules.decide_after_plan`; this only reads it. `auto_fix`
+    goes straight to execute_pr because the policy cleared it and the sandbox proved it.
     """
-    return "human_gate" if branch["advisory"].decision == "needs_human" else END
+    adv = branch["advisory"]
+    if adv.decision == "needs_human":
+        return "human_gate"
+    if adv.decision == "auto_fix":
+        return "execute_pr"
+    return END
+
+
+def route_after_gate(branch: AdvisoryBranch) -> str:
+    """After the human gate: only an explicit approval opens a pull request.
+
+    A reject, a halt from a malformed resume, or anything else ends the branch. `execute_pr`
+    re-checks this itself rather than trusting the edge.
+    """
+    adv = branch["advisory"]
+    if adv.decision == "halted":
+        return END
+    if adv.human is not None and adv.human.verdict == "approve":
+        return "execute_pr"
+    return END

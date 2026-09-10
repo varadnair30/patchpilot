@@ -197,6 +197,9 @@ class AdvisoryState(BaseModel):
     decision: DecisionClass | None = None
     human: HumanDecision | None = None
     pr: PullRequestRef | None = None
+    pr_note: str | None = Field(
+        default=None, description="Why no PR was opened, when that was not a failure"
+    )
     trace_url: str | None = None
     halt_reason: str | None = None
 
@@ -244,6 +247,7 @@ class ScanState(TypedDict, total=False):
     scan_id: str
     repo: RepoRef
     dependencies: list[Dependency]
+    data_freshness: DataFreshness
     advisories: Annotated[list[AdvisoryState], merge_advisories]
     budget: Annotated[Budget, add_budget]
     data_freshness: DataFreshness
@@ -262,6 +266,7 @@ class AdvisoryBranch(TypedDict, total=False):
     scan_id: str
     repo: RepoRef
     dependencies: list[Dependency]
+    data_freshness: DataFreshness
     advisory: AdvisoryState
     budget_fraction: float
     advisories: Annotated[list[AdvisoryState], merge_advisories]

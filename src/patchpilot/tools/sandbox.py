@@ -137,10 +137,14 @@ def _rewrite_pin(text: str, package: str, target_version: str) -> tuple[str, boo
     return "".join(out_lines), changed
 
 
-def apply_bump(repo_path: str, package: str, target_version: str) -> list[str]:
-    """Rewrite the package's pin in place. Returns the repo-relative files that changed."""
+def planned_edits(repo_path: str, package: str, target_version: str) -> dict[str, str]:
+    """The bump as {repo-relative path: new content}, touching nothing on disk.
+
+    The sandbox applies these to its throwaway copy; execute_pr commits the same content to a
+    branch. Sharing one function is what makes "we tested exactly what we are proposing" true.
+    """
     root = Path(repo_path)
-    changed: list[str] = []
+    edits: dict[str, str] = {}
     candidates = sorted(root.glob("requirements*.txt")) + sorted(
         (root / "requirements").glob("*.txt")
     )
@@ -150,9 +154,17 @@ def apply_bump(repo_path: str, package: str, target_version: str) -> list[str]:
         text = path.read_text(encoding="utf-8")
         rewritten, did = _rewrite_pin(text, package, target_version)
         if did:
-            path.write_text(rewritten, encoding="utf-8")
-            changed.append(path.relative_to(root).as_posix())
-    return changed
+            edits[path.relative_to(root).as_posix()] = rewritten
+    return edits
+
+
+def apply_bump(repo_path: str, package: str, target_version: str) -> list[str]:
+    """Rewrite the package's pin in place. Returns the repo-relative files that changed."""
+    root = Path(repo_path)
+    edits = planned_edits(repo_path, package, target_version)
+    for relative, content in edits.items():
+        (root / relative).write_text(content, encoding="utf-8")
+    return list(edits)
 
 
 # --------------------------------------------------------------------------------------------
