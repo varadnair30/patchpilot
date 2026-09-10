@@ -13,9 +13,10 @@ Two things this node deliberately does *not* do:
 * It does not trust the resume payload. Anything that is not a valid `ResumeCommand` halts the
   branch the same way a tool contract violation does (rule 3), rather than being written to state.
 
-In step 5 the gate sits directly after `justify` and fires on non-empty `risk.triggers`. Step 6
-moves it after `plan_remediation`, where the sandbox diff joins the bundle and `modify` becomes a
-third verdict.
+Since step 6 the gate sits after `plan_remediation` and `justify`, and fires when the deterministic
+policy landed on `needs_human`. The bundle therefore carries the plan and the sandbox diff as well:
+the reviewer sees the version they are approving and which tests it broke. `modify` still waits for
+the sandbox re-run that will let a reviewer choose a different target version.
 """
 
 from __future__ import annotations
@@ -32,8 +33,10 @@ from patchpilot.graph.state import (
     BumpKind,
     HumanDecision,
     InjectionFlag,
+    Plan,
     Reachability,
     RiskTier,
+    SandboxResult,
     UntrustedText,
 )
 from patchpilot.llm.justify import EvidenceItem, build_evidence
@@ -62,8 +65,15 @@ class GatePayload(BaseModel):
     risk_score: float
     risk_tier: RiskTier
     package_tier: str = "default"
-    triggers: list[str] = Field(default_factory=list)
+    triggers: list[str] = Field(
+        default_factory=list, description="Everything that forced this gate, plan triggers included"
+    )
+    risk_triggers: list[str] = Field(
+        default_factory=list, description="The subset risk_policy produced, before the plan existed"
+    )
 
+    plan: Plan | None = None
+    sandbox: SandboxResult | None = None
     reachability: Reachability | None = None
     justification: str | None = None
     justification_evidence: list[str] = Field(default_factory=list)
@@ -107,7 +117,10 @@ def build_gate_payload(adv: AdvisoryState, scan_id: str | None) -> GatePayload:
         risk_score=risk.score if risk else 0.0,
         risk_tier=risk.tier if risk else "low",
         package_tier=risk.package_tier if risk else "default",
-        triggers=list(risk.triggers) if risk else [],
+        triggers=list(adv.gate_triggers) or (list(risk.triggers) if risk else []),
+        risk_triggers=list(risk.triggers) if risk else [],
+        plan=adv.plan,
+        sandbox=adv.sandbox,
         reachability=adv.reachability,
         justification=adv.justification,
         justification_evidence=list(adv.justification_evidence),

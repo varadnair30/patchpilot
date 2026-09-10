@@ -1,0 +1,120 @@
+{
+  "releases": [
+    {
+      "notes": "### Changed\r\n* Reuse `Request`'s body buffer for call_next in `BaseHTTPMiddleware` [#1692](https://github.com/encode/starlette/pull/1692).\r\n* Move exception handling logic to `Route` [#2026](https://github.com/encode/starlette/pull/2026).\r\n\r\n### Added\r\n* Add `env` parameter to `Jinja2Templates`, and deprecate `**env_options` [#2159](https://github.com/encode/starlette/pull/2159).\r\n* Add clear error message when `httpx` is not installed [#2177](https://github.com/encode/starlette/pull/2177).\r\n\r\n### Fixed\r\n* Allow \"name\" argument on `templates url_for()` [#2127](https://github.com/encode/starlette/pull/2127).\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.27.0...0.28.0",
+      "version": "0.28.0"
+    },
+    {
+      "notes": "## Added\r\n\r\n* Add `follow_redirects` parameter to `TestClient` [#2207](https://github.com/encode/starlette/pull/2207).\r\n* Add `__str__` to `HTTPException` and `WebSocketException` [#2181](https://github.com/encode/starlette/pull/2181).\r\n* Warn users when using `lifespan` together with `on_startup`/`on_shutdown` [#2193](https://github.com/encode/starlette/pull/2193).\r\n* Collect routes from `Host` to generate the OpenAPI schema [#2183](https://github.com/encode/starlette/pull/2183).\r\n* Add `request` argument to `TemplateResponse` [#2191](https://github.com/encode/starlette/pull/2191).\r\n\r\n## Fixed\r\n\r\n* Stop `body_stream` in case `more_body=False` on `BaseHTTPMiddleware` [#2194](https://github.com/encode/starlette/pull/2194).\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.28.0...0.29.0",
+      "version": "0.29.0"
+    },
+    {
+      "notes": "### Removed\r\n\r\n* Drop Python 3.7 support [#2178](https://github.com/encode/starlette/pull/2178).",
+      "version": "0.30.0"
+    },
+    {
+      "notes": "## Added\r\n\r\n* Officially support Python 3.12 [#2214](https://github.com/encode/starlette/pull/2214).\r\n* Support AnyIO 4.0 [#2211](https://github.com/encode/starlette/pull/2211).\r\n* Strictly type annotate Starlette (strict mode on mypy) [#2180](https://github.com/encode/starlette/pull/2180).\r\n\r\n## Fixed\r\n\r\n* Don't group duplicated headers on a single string when using the `TestClient` [#2219](https://github.com/encode/starlette/pull/2219).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.30.0...0.31.0",
+      "version": "0.31.0"
+    },
+    {
+      "notes": "### Fixed\r\n\r\n* Fix import error when `exceptiongroup` isn't available [#2231](https://github.com/encode/starlette/pull/2231).\r\n* Set `url_for` global for custom Jinja environments [#2230](https://github.com/encode/starlette/pull/2230).\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.31.0...0.31.1",
+      "version": "0.31.1"
+    },
+    {
+      "notes": "## Added\r\n\r\n* Send `reason` on `WebSocketDisconnect` [#2309](https:://github.com/encode/starlette/pull/2309).\r\n* Add `domain` parameter to `SessionMiddleware` [#2280](https:://github.com/encode/starlette/pull/2280).\r\n\r\n## Changed\r\n\r\n* Inherit from `HTMLResponse` instead of `Response` on `_TemplateResponse` [#2274](https://github.com/encode/starlette/pull/2274).\r\n* Restore the `Response.render` type annotation to its pre-0.31.0 state [#2264](https://github.com/encode/starlette/pull/2264).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.31.1...0.32.0",
+      "version": "0.32.0"
+    },
+    {
+      "notes": "### Fixed\r\n\r\n* Revert mkdocs-material from 9.1.17 to 9.4.7 [#2326](https://github.com/encode/starlette/pull/2326).",
+      "version": "0.32.0.post1"
+    },
+    {
+      "notes": "## Added\r\n\r\n* Add `middleware` per `Route`/`WebSocketRoute` [#2349](https://github.com/encode/starlette/pull/2349).\r\n* Add `middleware` per `Router` [#2351](https://github.com/encode/starlette/pull/2351).\r\n\r\n## Fixed\r\n\r\n* Do not overwrite `\"path\"` and `\"root_path\"` scope keys [#2352](https://github.com/encode/starlette/pull/2352).\r\n* Set `ensure_ascii=False` on `json.dumps()` for `WebSocket.send_json()` [#2341](https://github.com/encode/starlette/pull/2341).",
+      "version": "0.33.0"
+    },
+    {
+      "notes": "## Added\r\n\r\n* Use `ParamSpec` for `run_in_threadpool` [#2375](https://github.com/encode/starlette/pull/2375).\r\n* Add `UploadFile.__repr__` [#2360](https://github.com/encode/starlette/pull/2360).\r\n\r\n## Fixed\r\n\r\n* Merge URLs properly on `TestClient` [#2376](https://github.com/encode/starlette/pull/2376).\r\n* Take weak ETags in consideration on `StaticFiles` [#2334](https://github.com/encode/starlette/pull/2334).\r\n\r\n## Deprecated\r\n\r\n* Deprecate `FileResponse(method=...)` parameter [#2366](https://github.com/encode/starlette/pull/2366).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.33.0...0.34.0",
+      "version": "0.34.0"
+    },
+    {
+      "notes": "## Added\r\n\r\n* Add `*args` to `Middleware` and improve its type hints [#2381](https://github.com/encode/starlette/pull/2381).\r\n\r\n## Fixed\r\n\r\n* Use `Iterable` instead `Iterator` on `iterate_in_threadpool` [#2362](https://github.com/encode/starlette/pull/2362).\r\n\r\n## Changes\r\n\r\n* Handle `root_path` to keep compatibility with mounted ASGI applications and WSGI [#2400](https://github.com/encode/starlette/pull/2400).\r\n* Turn `scope[\"client\"]` to `None` on `TestClient` [#2377](https://github.com/encode/starlette/pull/2377).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.34.0...0.35.0",
+      "version": "0.35.0"
+    },
+    {
+      "notes": "## Fixed\r\n\r\n* Stop using the deprecated \"method\" parameter in `FileResponse` inside of `StaticFiles` [#2406](https://github.com/encode/starlette/pull/2406).\r\n* Make `typing-extensions` optional again [#2409](https://github.com/encode/starlette/pull/2409).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.35.0...0.35.1",
+      "version": "0.35.1"
+    },
+    {
+      "notes": "## Added\r\n\r\n* Add support for ASGI `pathsend` extension [#2435](http://github.com/encode/starlette/pull/2435).\r\n* Cancel `WebSocketTestSession` on close [#2427](http://github.com/encode/starlette/pull/2427).\r\n* Raise `WebSocketDisconnect` when `WebSocket.send()` excepts `IOError` [#2425](http://github.com/encode/starlette/pull/2425).\r\n* Raise `FileNotFoundError` when the `env_file` parameter on `Config` is not valid [#2422](http://github.com/encode/starlette/pull/2422).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.35.1...0.36.0",
+      "version": "0.36.0"
+    },
+    {
+      "notes": "## Fixed\r\n\r\n* Check if \"extensions\" in scope before checking the extension [#2438](http://github.com/encode/starlette/pull/2438).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.36.0...0.36.1",
+      "version": "0.36.1"
+    },
+    {
+      "notes": "## Fixed\r\n\r\n* Upgrade `python-multipart` to `0.0.7` [13e5c26](13e5c26a27f4903924624736abd6131b2da80cc5).\r\n* Avoid duplicate charset on `Content-Type` [#2443](https://github.com/encode/starlette/2443).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.36.1...0.36.2",
+      "version": "0.36.2"
+    },
+    {
+      "notes": "## Fixed\r\n\r\n* Create `anyio.Event` on async context [#2459](https://github.com/encode/starlette/pull/2459).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.36.2...0.36.3",
+      "version": "0.36.3"
+    },
+    {
+      "notes": "## Added\r\n\r\n* Support the WebSocket Denial Response ASGI extension [#2041](https://github.com/encode/starlette/pull/2041).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.36.3...0.37.0",
+      "version": "0.37.0"
+    },
+    {
+      "notes": "## Fixed\r\n\r\n* Warn instead of raise for missing env file on `Config` [#2485](https://github.com/encode/starlette/pull/2485).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.37.0...0.37.1",
+      "version": "0.37.1"
+    },
+    {
+      "notes": "#### Added\r\n\r\n* Add `bytes` to `_RequestData` type [#2510](https://github.com/encode/starlette/pull/2510).\r\n\r\n#### Fixed\r\n\r\n* Revert \"Turn `scope[\"client\"]` to `None` on `TestClient` (#2377)\" [#2525](https://github.com/encode/starlette/pull/2525).\r\n* Remove deprecated `app` argument passed to `httpx.Client` on the `TestClient` [#2526](https://github.com/encode/starlette/pull/2526).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.37.1...0.37.2",
+      "version": "0.37.2"
+    },
+    {
+      "notes": "## Added\r\n\r\n* Allow use of `memoryview` in `StreamingResponse` and `Response` [#2576](https://github.com/encode/starlette/pull/2576)\r\n  and [#2577](https://github.com/encode/starlette/pull/2577).\r\n* Send 404 instead of 500 when filename requested is too long on `StaticFiles` [#2583](https://github.com/encode/starlette/pull/2583).\r\n\r\n## Changed\r\n\r\n* Fail fast on invalid `Jinja2Template` instantiation parameters [#2568](https://github.com/encode/starlette/pull/2568).\r\n* Check endpoint handler is async only once [#2536](https://github.com/encode/starlette/pull/2536).\r\n\r\n## Fixed\r\n\r\n* Add proper synchronization to `WebSocketTestSession` [#2597](https://github.com/encode/starlette/pull/2597).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.37.2...0.38.0",
+      "version": "0.38.0"
+    },
+    {
+      "notes": "## Removed\r\n\r\n* Revert \"Add support for ASGI pathsend extension\" [#2649](https://github.com/encode/starlette/2649).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.38.0...0.38.1",
+      "version": "0.38.1"
+    },
+    {
+      "notes": "## Fixed\r\n\r\n* Fix `routing.get_name()` not to assume all routines have `__name__` [#2648](https://github.com/encode/starlette/pull/2648)\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.38.1...0.38.2",
+      "version": "0.38.2"
+    },
+    {
+      "notes": "### Added\r\n\r\n* Support for Python 3.13 [#2662](https://github.com/encode/starlette/pull/2662).\r\n\r\n### Fixed\r\n\r\n* Don't poll for disconnects in `BaseHTTPMiddleware` via `StreamingResponse` [#2620](https://github.com/encode/starlette/pull/2620).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.38.2...0.38.3",
+      "version": "0.38.3"
+    },
+    {
+      "notes": "## Fixed\r\n\r\n* Ensure accurate `root_path` removal in `get_route_path` function [#2600](https://github.com/encode/starlette/pull/2600)\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.38.3...0.38.4",
+      "version": "0.38.4"
+    },
+    {
+      "notes": "## Fixed\r\n\r\n* Schedule `BackgroundTasks` from within `BaseHTTPMiddleware` [#2688](https://github.com/encode/starlette/pull/2688).\r\n  This behavior was removed in 0.38.3, and is now restored.\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.38.4...0.38.5",
+      "version": "0.38.5"
+    },
+    {
+      "notes": "## Fixed\r\n\r\n* Close unclosed `MemoryObjectReceiveStream` in `TestClient` [#2693](https://github.com/encode/starlette/pull/2693).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.38.5...0.38.6",
+      "version": "0.38.6"
+    },
+    {
+      "notes": "## Added\r\n\r\n* Add support for HTTP Range to `FileResponse` [#2697](https://github.com/encode/starlette/pull/2697)\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.38.6...0.39.0",
+      "version": "0.39.0"
+    },
+    {
+      "notes": "## Fixed\r\n\r\n- Avoid regex re-compilation in `responses.py` and `schemas.py` [#2700](https://github.com/encode/starlette/pull/2700).\r\n- Improve performance of `get_route_path` by removing regular expression usage [#2701](https://github.com/encode/starlette/pull/2701).\r\n- Consider `FileResponse.chunk_size` when handling multiple ranges [#2703](https://github.com/encode/starlette/pull/2703).\r\n- Use `token_hex` for generating multipart boundary strings [#2702](https://github.com/encode/starlette/pull/2702).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.39.0...0.39.1",
+      "version": "0.39.1"
+    },
+    {
+      "notes": "## Fixed\r\n\r\n- Allow use of `request.url_for` when only \"app\" scope is available [#2672](https://github.com/encode/starlette/pull/2672).\r\n- Fix internal type hints to support `python-multipart==0.0.12` [#2708](https://github.com/encode/starlette/pull/2708).\r\n\r\n---\r\n\r\n**Full Changelog**: https://github.com/encode/starlette/compare/0.39.1...0.39.2",
+      "version": "0.39.2"
+    },
+    {
+      "notes": "This release fixes a Denial of service (DoS) via `multipart/form-data` requests.\r\n\r\nYou can view the full security advisory:\r\n[GHSA-f96h-pmfr-66vw](https://github.com/encode/starlette/security/advisories/GHSA-f96h-pmfr-66vw)\r\n\r\n## Fixed\r\n\r\n- Add `max_part_size` to `MultiPartParser` to limit the size of parts in `multipart/form-data`\r\n  requests [fd038f3](https://github.com/encode/starlette/commit/fd038f3070c302bff17ef7d173dbb0b007617733).\r\n",
+      "version": "0.40.0"
+    }
+  ]
+}

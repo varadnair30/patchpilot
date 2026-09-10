@@ -39,7 +39,14 @@ patchpilot = ["recorded/fixtures/**/*.json", "policy/*.yaml"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-q"
+# Rule 2: the default run is recorded-mode and offline. The `docker` tests set
+# PATCHPILOT_MODE=live and pull images and wheels from the network, so they are opt-in:
+#   pytest -m docker      run them (needs a Docker engine)
+#   pytest -m "not docker"  the default, and what CI runs
+addopts = "-q -m 'not docker'"
+markers = [
+  "docker: needs a Docker engine and network access; excluded from the default offline run",
+]
 
 [tool.ruff]
 line-length = 100

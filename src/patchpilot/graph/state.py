@@ -122,6 +122,15 @@ class Plan(BaseModel):
     bump_kind: BumpKind
     changelog_hits: list[ChangelogChunk] = Field(default_factory=list)
     breaking_changes: list[str] = Field(default_factory=list)
+    breaking_change_citations: list[str] = Field(
+        default_factory=list, description="chunk_ids the breaking-change summary cited"
+    )
+    dependency_conflicts: list[str] = Field(
+        default_factory=list,
+        description="Other pins in the repo that forbid this target version, e.g. "
+        "'fastapi 0.100.0 requires starlette<0.28.0'",
+    )
+    notes: list[str] = Field(default_factory=list)
 
 
 class SandboxResult(BaseModel):
@@ -173,6 +182,11 @@ class AdvisoryState(BaseModel):
 
     reachability: Reachability | None = None
     risk: Risk | None = None
+    gate_triggers: list[str] = Field(
+        default_factory=list,
+        description="Every trigger that forced a human, risk_policy's and plan_remediation's. "
+        "`risk.triggers` stays exactly what risk_policy computed.",
+    )
     bump_kind: BumpKind | None = None
     policy_reasons: list[str] = Field(default_factory=list)
     justification: str | None = None
@@ -247,6 +261,7 @@ class AdvisoryBranch(TypedDict, total=False):
 
     scan_id: str
     repo: RepoRef
+    dependencies: list[Dependency]
     advisory: AdvisoryState
     budget_fraction: float
     advisories: Annotated[list[AdvisoryState], merge_advisories]

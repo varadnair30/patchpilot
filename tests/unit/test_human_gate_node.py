@@ -16,7 +16,7 @@ from patchpilot.graph.nodes.human_gate import (
     build_gate_payload,
     human_gate,
 )
-from patchpilot.graph.routing import route_after_justify
+from patchpilot.graph.routing import route_to_human_gate
 from patchpilot.graph.state import (
     AdvisoryState,
     CallSite,
@@ -66,25 +66,26 @@ def make_advisory(**overrides) -> AdvisoryState:
 # ------------------------------------------------------------------ routing
 
 
-def test_route_sends_triggered_advisories_to_the_gate():
-    branch = {"advisory": make_advisory()}
-    assert route_after_justify(branch) == "human_gate"
+def test_route_sends_a_needs_human_decision_to_the_gate():
+    """Since step 6 the gate is opened by the decision, not by raw triggers: plan_remediation has
+    already weighed the triggers, the bump and the sandbox diff through policy/rules.py."""
+    assert route_to_human_gate({"advisory": make_advisory(decision="needs_human")}) == "human_gate"
 
 
-def test_route_skips_the_gate_when_the_policy_raised_no_triggers():
-    branch = {"advisory": make_advisory(risk=Risk(score=4.0, tier="medium", triggers=[]))}
-    assert route_after_justify(branch) == END
+@pytest.mark.parametrize("decision", ["auto_fix", "not_applicable", "accept_risk", "halted"])
+def test_route_never_gates_a_decision_the_policy_settled(decision):
+    assert route_to_human_gate({"advisory": make_advisory(decision=decision)}) == END
 
 
-@pytest.mark.parametrize("decision", ["not_applicable", "accept_risk", "halted"])
-def test_route_never_gates_a_terminal_decision(decision):
-    """A terminal decision is the policy's final word; there is nothing for a human to approve."""
-    adv = make_advisory(decision=decision, risk=Risk(score=6.2, tier="high", triggers=["x"]))
-    assert route_after_justify({"advisory": adv}) == END
+def test_route_does_not_gate_on_triggers_alone():
+    """Triggers are an input to the decision, not a substitute for it."""
+    adv = make_advisory(decision="auto_fix", risk=Risk(score=6.2, tier="high", triggers=["x"]))
+    assert route_to_human_gate({"advisory": adv}) == END
 
 
-def test_route_skips_the_gate_when_the_policy_never_ran():
-    assert route_after_justify({"advisory": make_advisory(risk=None)}) == END
+def test_an_undecided_advisory_is_not_sent_to_a_human():
+    """plan_remediation always sets a decision; a missing one would be a bug, not a gate."""
+    assert route_to_human_gate({"advisory": make_advisory(decision=None)}) == END
 
 
 # ------------------------------------------------------------------ payload
@@ -98,6 +99,8 @@ def test_payload_carries_the_evidence_bundle_decision_triggers_and_justification
     assert p.advisory_id == adv.advisory_id
     assert p.decision == "needs_human"
     assert p.triggers == ["sensitive_tier:auth"]
+    assert p.risk_triggers == ["sensitive_tier:auth"]
+    assert p.risk_triggers == ["sensitive_tier:auth"]
     assert p.justification == adv.justification
     assert p.justification_evidence == adv.justification_evidence
     assert p.risk_tier == "high" and p.package_tier == "auth"

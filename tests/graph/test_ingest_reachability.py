@@ -19,35 +19,57 @@ from patchpilot.graph.state import Budget, RepoRef
 from patchpilot.llm.justify import Justification
 
 # advisory_id: (imported, symbol_called, is_runtime_dep, min_fixed_version,
-#               decision-or-None, bump_kind, triggers)
+#               decision, bump_kind, risk_policy triggers)
+#
+# `decision` became terminal for every advisory in step 6: plan_remediation resolves a target
+# version, tests the bump in Docker and hands the evidence to policy.rules.decide_after_plan, so
+# nothing is left "pending" by the time collect runs. `triggers` is still exactly what risk_policy
+# produced — the plan's own triggers live in `gate_triggers`, which is why this column did not move.
 EXPECTED = {
-    "GHSA-75c5-xw7c-p5pm": (True, True, True, "2.10.1", None, "patch", ["sensitive_tier:auth"]),
-    "GHSA-9wx4-h78v-vm56": (True, True, True, "2.32.0", None, "minor", []),
-    "GHSA-9hjg-9r4m-mvj7": (True, True, True, "2.32.4", None, "minor", []),
+    "GHSA-75c5-xw7c-p5pm": (
+        True,
+        True,
+        True,
+        "2.10.1",
+        "needs_human",
+        "patch",
+        ["sensitive_tier:auth"],
+    ),
+    "GHSA-9wx4-h78v-vm56": (True, True, True, "2.32.0", "needs_human", "minor", []),
+    "GHSA-9hjg-9r4m-mvj7": (True, True, True, "2.32.4", "needs_human", "minor", []),
     "GHSA-34jh-p97f-mpxf": (True, False, True, "2.2.2", "not_applicable", "patch", []),
     "GHSA-h75v-3vvj-5mfj": (True, False, True, "3.1.4", "not_applicable", "patch", []),
     "GHSA-44wm-f244-xhp3": (True, False, True, "10.3.0", "not_applicable", "minor", []),
-    "GHSA-2jv5-9r88-3w3p": (False, True, True, "0.0.7", None, "patch", []),
-    "GHSA-59g5-xgcq-4qw3": (False, True, True, "0.0.18", None, "patch", []),
+    "GHSA-2jv5-9r88-3w3p": (False, True, True, "0.0.7", "auto_fix", "patch", []),
+    "GHSA-59g5-xgcq-4qw3": (False, True, True, "0.0.18", "auto_fix", "patch", []),
     "GHSA-f96h-pmfr-66vw": (
         False,
         True,
         True,
         "0.40.0",
-        None,
+        "needs_human",
         "major",
         ["sensitive_tier:web-framework", "major_bump"],
     ),
-    "GHSA-6vqw-3v5j-54x4": (True, False, True, "42.0.4", None, "patch", ["sensitive_tier:crypto"]),
+    "GHSA-6vqw-3v5j-54x4": (
+        True,
+        False,
+        True,
+        "42.0.4",
+        "needs_human",
+        "patch",
+        ["sensitive_tier:crypto"],
+    ),
     "GHSA-fj7x-q9j7-g6q6": (False, False, False, "24.3.0", "accept_risk", "major", []),
 }
 
-# The advisories the policy raised gate triggers for; they park at human_gate until approved.
-GATED = {aid for aid, expected in EXPECTED.items() if expected[6]}
+# The advisories that park at human_gate. Since step 6 that is the decision, not the raw triggers:
+# requests is gated by its minor bump, which risk_policy never saw.
+GATED = {aid for aid, expected in EXPECTED.items() if expected[4] == "needs_human"}
 
 EXPECTED_SUMMARY = {
-    "pending:needs_human": 3,
-    "pending:auto_fix_candidate": 4,
+    "needs_human": 5,
+    "auto_fix": 2,
     "not_applicable": 3,
     "accept_risk": 1,
 }
@@ -119,12 +141,7 @@ def test_fake_justifier_runs_once_per_advisory_and_budget_is_summed(demo_app):
 
     result = _run(demo_app, justifier=fake, thread="t2")
     assert len(seen) == 11 and len({s[0] for s in seen}) == 11
-    assert {d for _, d in seen} == {
-        "not_applicable",
-        "accept_risk",
-        "needs_human (pending plan)",
-        "auto_fix candidate (pending sandbox)",
-    }
+    assert {d for _, d in seen} == {"not_applicable", "accept_risk", "needs_human", "auto_fix"}
     assert result["budget"].tokens_used == 1100
     assert abs(result["budget"].usd_used - 0.011) < 1e-9
     assert result["budget"].tokens_cap == 200_000, "caps survive the reducer"
@@ -170,7 +187,7 @@ def test_checkpoint_persists_state(demo_app):
     graph = build_graph(saver, justifier=None)
     cfg = {"configurable": {"thread_id": "t5"}}
     graph.invoke({"scan_id": "t5", "repo": RepoRef(path=str(demo_app))}, config=cfg)
-    assert graph.get_state(cfg).next == ("advisory",) * 3, "three branches wait for a human"
+    assert graph.get_state(cfg).next == ("advisory",) * len(GATED)
 
     _approve_pending(graph, "t5")
     snapshot = graph.get_state(cfg)

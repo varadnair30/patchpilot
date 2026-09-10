@@ -1,0 +1,8 @@
+{
+  "releases": [
+    {
+      "notes": "## Fixed\r\n\r\n- Prevent partial matching of `iss` claim. Thanks @fabianbadoi! (See: https://github.com/jpadilla/pyjwt/security/advisories/GHSA-75c5-xw7c-p5pm)\r\n\r\n**Full Changelog**: https://github.com/jpadilla/pyjwt/compare/2.10.0...2.10.1",
+      "version": "2.10.1"
+    }
+  ]
+}

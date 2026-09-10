@@ -76,6 +76,9 @@ def _paused_row(payload) -> object:
         ),
         justification=payload.justification,
         justification_evidence=payload.justification_evidence,
+        plan=payload.plan,
+        sandbox=payload.sandbox,
+        gate_triggers=payload.triggers,
     )
 
 
@@ -172,7 +175,8 @@ def scan(
         table.add_row(
             a.advisory_id,
             a.package,
-            f"{a.installed_version} → {a.min_fixed_version or '-'}",
+            f"{a.installed_version} → "
+            f"{(a.plan.target_version if a.plan else None) or a.min_fixed_version or '-'}",
             a.bump_kind or "-",
             f"{a.cvss:.1f}" if a.cvss is not None else (a.severity_label or "-"),
             f"{a.epss:.3f}" if a.epss is not None else "-",
@@ -180,7 +184,7 @@ def scan(
             _reach_label(a),
             f"{a.risk.score:.1f} {a.risk.tier}" if a.risk else "-",
             "[yellow]awaiting human[/yellow]" if awaiting else _decision_label(a),
-            ", ".join(a.risk.triggers) if a.risk and a.risk.triggers else "",
+            ", ".join(a.gate_triggers or (a.risk.triggers if a.risk else [])),
         )
     console.print(table)
     if verbose:

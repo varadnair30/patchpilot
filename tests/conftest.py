@@ -17,6 +17,10 @@ def recorded_mode(monkeypatch, tmp_path):
     """
     monkeypatch.setenv("PATCHPILOT_MODE", "recorded")
     monkeypatch.setenv("PATCHPILOT_RECORD", "0")
+    # A developer's real key in .env must never make the suite call OpenAI or change an
+    # assertion. Tests that want the LLM path opt in by setting these themselves.
+    monkeypatch.setenv("PATCHPILOT_LLM", "off")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv("PATCHPILOT_CHECKPOINT_DB", str(tmp_path / "checkpoints.sqlite"))
     from patchpilot.config import get_settings

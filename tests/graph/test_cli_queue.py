@@ -5,13 +5,12 @@ CLI-level version of the process-restart test: nothing is carried in memory betw
 """
 
 import pytest
-from test_ingest_reachability import EXPECTED
+from test_ingest_reachability import GATED
 from typer.testing import CliRunner
 
 from patchpilot.cli.main import app
 from patchpilot.storage.db import open_ledger
 
-GATED = {aid for aid, expected in EXPECTED.items() if expected[6]}
 AUTH_ADVISORY = "GHSA-75c5-xw7c-p5pm"  # pyjwt: sensitive_tier:auth, the demo's showcase gate
 
 runner = CliRunner()
@@ -41,7 +40,7 @@ def run(*args):
 def test_scan_reports_the_pending_gates_and_the_queue_lists_them(cli_env, demo_app):
     scan = run("scan", str(demo_app), "--thread", "cli-1")
     assert scan.exit_code == 0, scan.output
-    assert "3" in scan.output and "awaiting" in scan.output.lower()
+    assert str(len(GATED)) in scan.output and "awaiting" in scan.output.lower()
     for aid in GATED:
         assert aid in scan.output, "a paused advisory is still shown in the scan table"
 

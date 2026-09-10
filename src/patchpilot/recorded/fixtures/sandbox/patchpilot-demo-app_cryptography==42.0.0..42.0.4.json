@@ -1,0 +1,8 @@
+{
+  "after_bump_failed": [],
+  "baseline_failed": [],
+  "flaky_rerun": [],
+  "newly_failing": [],
+  "reason": "pip install -r requirements-dev.txt then pytest",
+  "supported": true
+}
