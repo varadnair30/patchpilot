@@ -28,21 +28,43 @@ app.add_typer(queue_app, name="queue")
 console = Console(width=max(150, Console().width))
 
 
-def _run_scan(repo_path: Path, thread_id: str | None = None) -> tuple[str, dict, list]:
+def build_repo_ref(repo_path: Path, repo_url: str | None = None):
+    """Describe the scan target: where it is, what revision, and where its pull requests go.
+
+    The remote is read from `<repo_path>/.git` only — never from a parent directory. A target that
+    lives inside another repository (which is exactly where the demo app sits) must not inherit
+    that repository's remote, or PatchPilot would open pull requests against its own source.
+    `--repo-url` overrides whatever was found.
+    """
+    from patchpilot.graph.state import RepoRef
+    from patchpilot.tools.checkout import normalise_remote_url, read_checkout
+
+    resolved = repo_path.resolve()
+    checkout = read_checkout(resolved)
+    return RepoRef(
+        path=str(resolved),
+        url=normalise_remote_url(repo_url) if repo_url else checkout.url,
+        default_branch=checkout.default_branch or "main",
+        commit_sha=checkout.commit_sha,
+    )
+
+
+def _run_scan(
+    repo_path: Path, thread_id: str | None = None, repo_url: str | None = None
+) -> tuple[str, dict, list]:
     """Run one scan to completion or to its first set of human gates.
 
     Returns (scan_id, final state, gates still awaiting a human).
     """
     from patchpilot.graph.build import build_graph
     from patchpilot.graph.queue import pending_gates
-    from patchpilot.graph.state import RepoRef
     from patchpilot.storage.db import open_checkpointer
 
     scan_id = thread_id or str(uuid.uuid4())
     with open_checkpointer() as saver:
         graph = build_graph(saver)
         result = graph.invoke(
-            {"scan_id": scan_id, "repo": RepoRef(path=str(repo_path.resolve()))},
+            {"scan_id": scan_id, "repo": build_repo_ref(repo_path, repo_url)},
             config={"configurable": {"thread_id": scan_id}},
         )
         gates = pending_gates(graph, scan_id)
@@ -121,11 +143,17 @@ def scan(
     thread: str | None = typer.Option(
         None, "--thread", help="Scan id / checkpointer thread (default: a fresh UUID)"
     ),
+    repo_url: str | None = typer.Option(
+        None,
+        "--repo-url",
+        help="Where pull requests go, e.g. https://github.com/owner/repo. Defaults to the "
+        "checkout's own origin remote; without either, PatchPilot plans but opens nothing.",
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Print reasons and justifications"),
 ) -> None:
     if mode:
         os.environ["PATCHPILOT_MODE"] = mode
-    scan_id, result, gates = _run_scan(repo_path, thread)
+    scan_id, result, gates = _run_scan(repo_path, thread, repo_url)
     # A branch parked at its gate has published nothing back to the parent, so `advisories` still
     # holds that advisory as `ingest` left it. Show the reviewer what the branch actually knows.
     paused = {g.payload.advisory_id: _paused_row(g.payload) for g in gates}

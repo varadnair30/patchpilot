@@ -352,3 +352,38 @@ def test_the_title_names_the_package_and_both_versions():
     title = pr_title(make_advisory())
     assert "pyjwt" in title and "2.10.0" in title and "2.10.1" in title
     assert "GHSA-75c5-xw7c-p5pm" in title
+
+
+# ==================================================================== repository names with dots
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://github.com/owner/my.repo", "owner/my.repo"),
+        ("https://github.com/owner/foo.js", "owner/foo.js"),
+        ("https://github.com/owner/a.b.c", "owner/a.b.c"),
+        ("https://github.com/my.org/repo", "my.org/repo"),
+        ("https://github.com/owner/repo.git", "owner/repo"),
+        ("https://github.com/owner/my.repo.git", "owner/my.repo"),
+    ],
+)
+def test_dots_are_legal_in_repository_names(url, expected):
+    """`owner/foo.js` used to truncate to `owner/foo` — a different repository, which the token
+    might well be able to write to."""
+    assert github_slug(url) == expected
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://github.com/owner/repo/tree/main",
+        "https://github.com/owner/repo/pull/1",
+        "https://github.com/owner",
+        "https://github.com/",
+        "https://gitlab.com/owner/repo",
+        "https://notgithub.com/owner/repo",
+    ],
+)
+def test_anything_that_is_not_a_repository_root_is_refused(url):
+    assert github_slug(url) is None

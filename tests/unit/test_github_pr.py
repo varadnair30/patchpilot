@@ -232,3 +232,98 @@ def test_inputs_are_validated_by_contract(recorded_github):
 
     with pytest.raises(ContractViolation):
         create_branch({"repo": REPO})  # branch missing
+
+
+# ==================================================================== branching from the scan
+
+
+def test_the_branch_is_cut_from_the_revision_that_was_scanned(recorded_github, monkeypatch):
+    """A human gate can be open for days. Branching from wherever the default branch has moved to
+    would let the PR revert unrelated changes and would make the test evidence describe a base
+    that is no longer the one being proposed."""
+    calls = []
+    monkeypatch.setenv("PATCHPILOT_MODE", "live")
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    from patchpilot.config import get_settings
+
+    get_settings.cache_clear()
+
+    def fake_request(method, path, **kwargs):
+        calls.append((method, path, kwargs.get("json")))
+        return {}
+
+    monkeypatch.setattr(github_pr, "_request", fake_request)
+    create_branch(
+        CreateBranchInput(repo=REPO, branch=BRANCH, base_branch="main", base_sha="deadbeef")
+    )
+
+    assert not any(m == "GET" for m, _, _ in calls), "the moving head must not be consulted"
+    post = next(body for m, p, body in calls if m == "POST" and "git/refs" in p)
+    assert post["sha"] == "deadbeef"
+    assert post["ref"] == f"refs/heads/{BRANCH}"
+
+
+def test_without_a_scanned_revision_the_current_head_is_used(recorded_github, monkeypatch):
+    calls = []
+    monkeypatch.setenv("PATCHPILOT_MODE", "live")
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    from patchpilot.config import get_settings
+
+    get_settings.cache_clear()
+
+    def fake_request(method, path, **kwargs):
+        calls.append((method, path))
+        if method == "GET":
+            return {"object": {"sha": "headsha"}}
+        return {}
+
+    monkeypatch.setattr(github_pr, "_request", fake_request)
+    create_branch(CreateBranchInput(repo=REPO, branch=BRANCH, base_branch="main"))
+    assert ("GET", f"/repos/{REPO}/git/ref/heads/main") in calls
+
+
+# ==================================================================== reruns are idempotent
+
+
+def test_an_existing_pull_request_is_reused_rather_than_duplicated(recorded_github, monkeypatch):
+    """GitHub answers a second POST for the same head/base with a 422. A rerun of a scan reuses
+    the deterministic branch name, so it must find what is already open."""
+    monkeypatch.setenv("PATCHPILOT_MODE", "live")
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    from patchpilot.config import get_settings
+
+    get_settings.cache_clear()
+    posted = []
+
+    def fake_request(method, path, **kwargs):
+        if method == "GET" and path.endswith("/pulls"):
+            return [{"number": 42, "html_url": f"https://github.com/{REPO}/pull/42"}]
+        posted.append((method, path))
+        return {"number": 99, "html_url": "https://example.invalid/99"}
+
+    monkeypatch.setattr(github_pr, "_request", fake_request)
+    pr = open_pull_request(
+        OpenPullRequestInput(repo=REPO, head=BRANCH, base="main", title="t", body="b")
+    )
+
+    assert pr.number == 42, "the open PR was reused"
+    assert posted == [], "no duplicate POST was attempted"
+
+
+def test_a_first_run_still_opens_a_pull_request(recorded_github, monkeypatch):
+    monkeypatch.setenv("PATCHPILOT_MODE", "live")
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    from patchpilot.config import get_settings
+
+    get_settings.cache_clear()
+
+    def fake_request(method, path, **kwargs):
+        if method == "GET" and path.endswith("/pulls"):
+            return []
+        return {"number": 7, "html_url": f"https://github.com/{REPO}/pull/7"}
+
+    monkeypatch.setattr(github_pr, "_request", fake_request)
+    pr = open_pull_request(
+        OpenPullRequestInput(repo=REPO, head=BRANCH, base="main", title="t", body="b")
+    )
+    assert pr.number == 7

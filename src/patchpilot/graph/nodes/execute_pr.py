@@ -38,7 +38,16 @@ from patchpilot.tools.github_pr import (
 )
 from patchpilot.tools.sandbox import planned_edits
 
-_GITHUB_SLUG = re.compile(r"^(?:https?://)?(?:www\.)?github\.com/([^/]+)/([^/.]+)", re.IGNORECASE)
+# Anchored, and dots are legal in a repository name (`owner/my.repo`, `owner/foo.js`). The old
+# pattern excluded dots and was unanchored, so `owner/foo.js` silently became `owner/foo` — a
+# different repository, which the token might well have access to.
+_GITHUB_SLUG = re.compile(
+    r"^(?:https?://)?(?:www\.)?github\.com/"
+    r"(?P<owner>[A-Za-z0-9][A-Za-z0-9._-]*)/"
+    r"(?P<repo>[A-Za-z0-9][A-Za-z0-9._-]*?)"
+    r"(?:\.git)?/?$",
+    re.IGNORECASE,
+)
 
 
 def github_slug(url: str | None) -> str | None:
@@ -46,7 +55,7 @@ def github_slug(url: str | None) -> str | None:
     if not url:
         return None
     match = _GITHUB_SLUG.match(url.strip())
-    return f"{match.group(1)}/{match.group(2)}" if match else None
+    return f"{match.group('owner')}/{match.group('repo')}" if match else None
 
 
 def is_approved(adv: AdvisoryState) -> bool:
@@ -262,9 +271,24 @@ def execute_pr(branch: AdvisoryBranch) -> dict:
             return publish()
 
         head = branch_for(adv.advisory_id)
+        # Branch from the revision that was scanned, not from wherever the default branch has
+        # moved to since. A human gate can be open for days, and the file content below is the
+        # content of the local checkout at scan time: branching from a newer base would let this
+        # PR silently revert whatever else changed in those files, and would make the test
+        # evidence a claim about a base that is no longer the one being proposed.
         create_branch(
-            CreateBranchInput(repo=slug, branch=head, base_branch=repo_ref.default_branch)
+            CreateBranchInput(
+                repo=slug,
+                branch=head,
+                base_branch=repo_ref.default_branch,
+                base_sha=repo_ref.commit_sha,
+            )
         )
+        if not repo_ref.commit_sha:
+            adv.pr_note = (
+                "branched from the current default branch: the scan did not record a commit sha, "
+                "so the base may have moved since the sandbox ran"
+            )
         for path, content in sorted(edits.items()):
             commit_file(
                 CommitFileInput(

@@ -50,6 +50,11 @@ class CreateBranchInput(BaseModel):
     repo: str = Field(description="owner/name")
     branch: str
     base_branch: str = "main"
+    base_sha: str | None = Field(
+        default=None,
+        description="Exact revision to branch from — the one the sandbox tested. When unset, the "
+        "current head of base_branch is used, which may have moved since the scan.",
+    )
 
 
 class CreateBranchOutput(BaseModel):
@@ -142,8 +147,11 @@ def create_branch(inp: CreateBranchInput) -> CreateBranchOutput:
     key = f"{inp.repo}/{inp.branch}"
 
     def live() -> dict[str, Any]:
-        ref = _request("GET", f"/repos/{inp.repo}/git/ref/heads/{inp.base_branch}")
-        base_sha = ref["object"]["sha"]
+        if inp.base_sha:
+            base_sha = inp.base_sha
+        else:
+            ref = _request("GET", f"/repos/{inp.repo}/git/ref/heads/{inp.base_branch}")
+            base_sha = ref["object"]["sha"]
         created = True
         try:
             _request(
@@ -216,6 +224,18 @@ def open_pull_request(inp: OpenPullRequestInput) -> OpenPullRequestOutput:
     key = f"{inp.repo}/{inp.head}"
 
     def live() -> dict[str, Any]:
+        # Opening a PR is not idempotent on GitHub: a second POST for the same head/base is a 422.
+        # A rerun of a scan reuses the deterministic branch name, so look first and reuse what is
+        # already open rather than halting the advisory on a duplicate.
+        owner = inp.repo.split("/", 1)[0]
+        existing = _request(
+            "GET",
+            f"/repos/{inp.repo}/pulls",
+            params={"head": f"{owner}:{inp.head}", "base": inp.base, "state": "open"},
+        )
+        if isinstance(existing, list) and existing:
+            return {"number": existing[0]["number"], "url": existing[0]["html_url"]}
+
         result = _request(
             "POST",
             f"/repos/{inp.repo}/pulls",
