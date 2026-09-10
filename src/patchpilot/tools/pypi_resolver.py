@@ -33,6 +33,24 @@ from patchpilot.guardrails.contracts import contract
 from patchpilot.policy.rules import bump_kind
 from patchpilot.recorded.store import MissingFixture, RecordedStore
 
+# The environment the sandbox actually installs into. A requirement guarded by a marker that is
+# false there — `; python_version < "3.10"`, `; sys_platform == "win32"` — is not a constraint on
+# us, and treating it as one invents dependency conflicts and sends clean bumps to a human.
+# `extra: ""` covers the extras case too: `; extra == "all"` evaluates false when none are asked
+# for, which is exactly right.
+SANDBOX_PYTHON_VERSION = "3.12"
+SANDBOX_MARKER_ENVIRONMENT = {
+    "extra": "",
+    "python_version": SANDBOX_PYTHON_VERSION,
+    "python_full_version": f"{SANDBOX_PYTHON_VERSION}.0",
+    "implementation_name": "cpython",
+    "implementation_version": f"{SANDBOX_PYTHON_VERSION}.0",
+    "os_name": "posix",
+    "platform_machine": "x86_64",
+    "platform_system": "Linux",
+    "sys_platform": "linux",
+}
+
 
 class VersionConstraint(BaseModel):
     """Another installed distribution's opinion about this package's version."""
@@ -139,8 +157,7 @@ def _constraints_on(
                 continue
             if canonicalize_name(req.name) != canon:
                 continue
-            # `; extra == "..."` only applies when that extra is installed, and none are.
-            if req.marker is not None and "extra" in str(req.marker):
+            if req.marker is not None and not req.marker.evaluate(SANDBOX_MARKER_ENVIRONMENT):
                 continue
             if not str(req.specifier):
                 continue

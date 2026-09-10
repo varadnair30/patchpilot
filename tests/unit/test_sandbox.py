@@ -62,7 +62,9 @@ def test_pyproject_is_installed_editable_with_its_dev_extra(tmp_repo):
     assert shape.supported and "[dev]" in " ".join(shape.install_command)
 
 
-def test_uv_lock_uses_uv_sync(tmp_repo):
+def test_uv_lock_uses_uv_sync_and_installs_uv_first(tmp_repo):
+    """python:3.12-slim ships no `uv`, so `uv sync` alone exits 127 and would mark every uv
+    project unsupported — which rule 8 says we support."""
     repo = tmp_repo(
         {
             "uv.lock": "version = 1\n",
@@ -71,7 +73,10 @@ def test_uv_lock_uses_uv_sync(tmp_repo):
         }
     )
     shape = detect_project(str(repo))
-    assert shape.supported and shape.install_command[0] == "uv"
+    command = " ".join(shape.install_command)
+    assert shape.supported
+    assert "uv sync --frozen" in command
+    assert command.index("pip install uv") < command.index("uv sync"), "uv must exist first"
 
 
 def test_unittest_is_detected_when_pytest_is_absent(tmp_repo):

@@ -222,3 +222,65 @@ def test_an_unparseable_requirement_line_is_skipped(pypi):
 def test_the_tool_validates_its_input(pypi):
     with pytest.raises(ContractViolation):
         resolve_target_version({"package": "pkg"})  # installed_version missing
+
+
+# ------------------------------------------------------------------ environment markers
+
+
+def test_a_marker_that_is_false_in_the_sandbox_is_not_a_constraint(pypi):
+    """`; python_version < "3.10"` does not apply on a 3.12 sandbox, so it is not a conflict.
+
+    Treating it as one invents a dependency conflict and sends a clean bump to a human.
+    """
+    pypi("pkg", ["1.0.0", "2.0.0"])
+    pypi.requires("other", "1.0.0", ['pkg<2 ; python_version < "3.10"'])
+    out = resolve_target_version(
+        ResolverInput(
+            package="pkg",
+            installed_version="1.0.0",
+            min_fixed_version="2.0.0",
+            dependencies=[dep("other", "1.0.0")],
+        )
+    )
+    assert out.target_version == "2.0.0"
+    assert out.constraints == [] and out.conflicts == []
+
+
+def test_a_marker_that_is_true_in_the_sandbox_still_constrains(pypi):
+    pypi("pkg", ["1.0.0", "2.0.0"])
+    pypi.requires("other", "1.0.0", ['pkg<2 ; python_version >= "3.10"'])
+    out = resolve_target_version(
+        ResolverInput(
+            package="pkg",
+            installed_version="1.0.0",
+            min_fixed_version="2.0.0",
+            dependencies=[dep("other", "1.0.0")],
+        )
+    )
+    assert [c.specifier for c in out.constraints] == ["<2"]
+    assert out.conflicts == ["other 1.0.0 requires pkg<2"]
+
+
+def test_a_platform_marker_for_another_os_is_ignored(pypi):
+    """The sandbox is Linux; a win32-only requirement is not our constraint."""
+    pypi("pkg", ["1.0.0", "2.0.0"])
+    pypi.requires("other", "1.0.0", ['pkg<2 ; sys_platform == "win32"'])
+    out = resolve_target_version(
+        ResolverInput(
+            package="pkg",
+            installed_version="1.0.0",
+            min_fixed_version="2.0.0",
+            dependencies=[dep("other", "1.0.0")],
+        )
+    )
+    assert out.conflicts == []
+
+
+def test_the_marker_environment_matches_the_image_the_sandbox_runs(pypi):
+    """If the sandbox image moves to a new Python, marker evaluation has to move with it."""
+    from patchpilot.tools.pypi_resolver import SANDBOX_PYTHON_VERSION
+    from patchpilot.tools.sandbox import DEFAULT_IMAGE
+
+    assert DEFAULT_IMAGE.startswith(f"python:{SANDBOX_PYTHON_VERSION}"), (
+        f"{DEFAULT_IMAGE} and SANDBOX_PYTHON_VERSION={SANDBOX_PYTHON_VERSION} have drifted apart"
+    )

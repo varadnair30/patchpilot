@@ -85,7 +85,10 @@ def detect_project(repo_path: str) -> ProjectShape:
     root = Path(repo_path)
 
     if (root / "uv.lock").exists():
-        install = ["uv", "sync", "--frozen"]
+        # python:3.12-slim has no `uv`, so `uv sync` would exit 127 and mark every uv project
+        # unsupported — which rule 8 says we support. The command is shell-joined by
+        # _run_in_container, so `&&` chains correctly.
+        install = ["pip", "install", "uv", "&&", "uv", "sync", "--frozen"]
     elif (root / "requirements-dev.txt").exists():
         install = ["pip", "install", "-r", "requirements-dev.txt"]
     elif (root / "requirements.txt").exists():

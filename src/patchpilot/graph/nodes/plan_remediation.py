@@ -17,16 +17,24 @@ no changelog, or no runnable test suite ends up with less evidence, which the po
 
 from __future__ import annotations
 
-from patchpilot.graph.state import AdvisoryBranch, Budget, Plan
+import httpx
+
+from patchpilot.graph.state import AdvisoryBranch, Budget, Plan, SandboxResult
 from patchpilot.guardrails.contracts import ContractViolation
-from patchpilot.llm.changelog import SummariserFn, summarise_breaking_changes
+from patchpilot.llm.changelog import BreakingChanges, SummariserFn, summarise_breaking_changes
 from patchpilot.policy.rules import decide_after_plan
 from patchpilot.recorded.store import MissingFixture
-from patchpilot.tools.changelog_rag import ChangelogInput, retrieve_changelog
+from patchpilot.tools.changelog_rag import ChangelogInput, ChangelogOutput, retrieve_changelog
 from patchpilot.tools.pypi_resolver import ResolverInput, resolve_target_version
-from patchpilot.tools.sandbox import SandboxInput, run_sandbox
+from patchpilot.tools.sandbox import SandboxInput, SandboxOutput, run_sandbox
 
 TERMINAL = ("halted", "not_applicable", "accept_risk")
+
+# An external service being slow, rate-limited or down is a fact about today, not about this
+# advisory. It must cost the plan its evidence — which the policy reads as "a human should look at
+# this" — and never take the branch, or the other ten branches in the scan, down with it.
+# `ContractViolation` is deliberately NOT in here: bad data is a halt (rule 3).
+UNAVAILABLE = (MissingFixture, httpx.HTTPError, TimeoutError, ConnectionError)
 
 
 def retrieval_symbols(adv) -> list[str]:
@@ -63,9 +71,9 @@ def make_plan_remediation_node(summariser: SummariserFn | None):
             adv.decision = "halted"
             adv.halt_reason = f"plan_remediation/resolver: {e}"
             return {"advisory": adv}
-        except MissingFixture as e:
+        except UNAVAILABLE as e:
             resolved = None
-            notes.append(f"resolver: {e}")
+            notes.append(f"resolver unavailable: {_describe(e)}")
 
         if resolved is None or not resolved.target_version:
             adv.plan = None
@@ -77,30 +85,61 @@ def make_plan_remediation_node(summariser: SummariserFn | None):
         target = resolved.target_version
         notes += resolved.notes
 
-        changelog = retrieve_changelog(
-            ChangelogInput(
-                package=adv.package,
-                from_version=adv.installed_version,
-                to_version=target,
-                symbols=retrieval_symbols(adv),
+        try:
+            changelog = retrieve_changelog(
+                ChangelogInput(
+                    package=adv.package,
+                    from_version=adv.installed_version,
+                    to_version=target,
+                    symbols=retrieval_symbols(adv),
+                )
             )
-        )
+        except ContractViolation as e:
+            adv.decision = "halted"
+            adv.halt_reason = f"plan_remediation/changelog: {e}"
+            return {"advisory": adv}
+        except UNAVAILABLE as e:
+            changelog = ChangelogOutput(package=adv.package)
+            notes.append(f"changelog unavailable: {_describe(e)}")
         notes += changelog.notes
 
-        summary, delta, summary_notes = summarise_breaking_changes(
-            adv.package, adv.installed_version, target, changelog.chunks, summariser
-        )
+        try:
+            summary, delta, summary_notes = summarise_breaking_changes(
+                adv.package, adv.installed_version, target, changelog.chunks, summariser
+            )
+        except Exception as e:  # noqa: BLE001 - see below
+            # Deliberately broad. The breaking-change summary is explanatory: nothing routes on it,
+            # and the model client can fail in as many ways as there are SDKs. Losing the summary
+            # must never lose the plan.
+            summary, delta, summary_notes = (
+                BreakingChanges(),
+                Budget(),
+                [f"breaking-change summary unavailable: {_describe(e)}"],
+            )
         budget = delta
         notes += summary_notes
 
-        sandbox = run_sandbox(
-            SandboxInput(
-                repo_path=branch["repo"].path,
-                package=adv.package,
-                installed_version=adv.installed_version,
-                target_version=target,
+        try:
+            sandbox = run_sandbox(
+                SandboxInput(
+                    repo_path=branch["repo"].path,
+                    package=adv.package,
+                    installed_version=adv.installed_version,
+                    target_version=target,
+                )
             )
-        )
+        except ContractViolation as e:
+            adv.decision = "halted"
+            adv.halt_reason = f"plan_remediation/sandbox: {e}"
+            return {"advisory": adv}
+        except UNAVAILABLE as e:
+            sandbox = SandboxOutput(
+                result=SandboxResult(
+                    supported=False, reason=f"sandbox unavailable: {_describe(e)}"
+                ),
+                mode="skipped",
+            )
+            notes.append(sandbox.result.reason)
         notes += sandbox.notes
 
         adv.plan = Plan(
@@ -117,6 +156,11 @@ def make_plan_remediation_node(summariser: SummariserFn | None):
         return _finish(adv, branch, budget, notes)
 
     return plan_remediation
+
+
+def _describe(exc: BaseException) -> str:
+    """Short, safe rendering of a failure for the plan notes and the reviewer's screen."""
+    return f"{exc.__class__.__name__}: {str(exc)[:200]}"
 
 
 def _finish(adv, branch: AdvisoryBranch, budget: Budget, notes: list[str]) -> dict:
