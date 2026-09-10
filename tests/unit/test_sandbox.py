@@ -324,6 +324,7 @@ def test_an_unsupported_repo_short_circuits_before_any_run(sandbox_fixtures, tmp
 # ------------------------------------------------------------------ docker (skipped without one)
 
 
+@pytest.mark.docker
 @pytest.mark.skipif(not docker_available(), reason="no Docker engine reachable")
 def test_docker_really_runs_the_test_suite_twice(tmp_repo, monkeypatch):
     """The only test that starts a container. Proves baseline -> bump -> diff end to end."""
@@ -358,6 +359,7 @@ def test_docker_really_runs_the_test_suite_twice(tmp_repo, monkeypatch):
     assert (repo / "requirements.txt").read_text() == "packaging==24.0\n", "repo left untouched"
 
 
+@pytest.mark.docker
 @pytest.mark.skipif(not docker_available(), reason="no Docker engine reachable")
 def test_a_bump_pip_refuses_to_install_is_not_reported_as_clean(tmp_repo, monkeypatch):
     """The demo app's starlette case, and the regression that motivated the exit-code sentinels.
@@ -392,3 +394,39 @@ def test_a_bump_pip_refuses_to_install_is_not_reported_as_clean(tmp_repo, monkey
     assert out.result.newly_failing == []
     assert "cannot be installed" in out.result.reason
     assert "starlette" in out.result.reason
+
+
+@pytest.mark.docker
+@pytest.mark.skipif(not docker_available(), reason="no Docker engine reachable")
+def test_the_container_cannot_write_into_the_mounted_repository(tmp_repo):
+    """The regression that broke CI on Linux.
+
+    With a read-write bind mount the container's root user left root-owned __pycache__ and
+    .pytest_cache behind, which the non-root caller could then not delete — a PermissionError
+    during temp-directory cleanup. Docker Desktop masks ownership on Windows and macOS, so it only
+    ever showed up on a Linux runner. The mount is read-only now, which is checkable anywhere.
+    """
+    import subprocess
+
+    repo = tmp_repo({"requirements.txt": "packaging==24.0\n"})
+    done = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{repo}:/src:ro",
+            "python:3.12-slim",
+            "sh",
+            "-lc",
+            "touch /src/should-not-appear && echo WROTE || echo REFUSED",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=300,
+    )
+    assert "REFUSED" in (done.stdout or "") + (done.stderr or "")
+    assert not (repo / "should-not-appear").exists()
+    assert sorted(p.name for p in repo.iterdir()) == ["requirements.txt"]
