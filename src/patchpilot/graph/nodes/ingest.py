@@ -13,6 +13,7 @@ import yaml
 from patchpilot.config import PACKAGE_ROOT, get_settings
 from patchpilot.graph.state import Budget, DataFreshness, ScanState
 from patchpilot.guardrails.contracts import ContractViolation
+from patchpilot.guardrails.injection import classify
 from patchpilot.tools.epss import EpssInput, lookup_epss
 from patchpilot.tools.lockfile import LockfileInput, parse_lockfiles
 from patchpilot.tools.osv import OsvInput, lookup_advisories
@@ -51,6 +52,13 @@ def ingest(state: ScanState) -> dict:
             "dependencies": lock.dependencies,
             "advisories": [],
         }
+
+    # Untrusted advisory prose is flagged here, never dropped: the reviewer still reads it, and
+    # the policy turns the flag into a gate trigger.
+    for adv in osv.advisories:
+        adv.injection_flag = classify(
+            adv.untrusted_text.advisory_summary, adv.untrusted_text.advisory_details
+        )
 
     cves = [a for adv in osv.advisories for a in adv.aliases if a.startswith("CVE-")]
     epss = lookup_epss(EpssInput(cve_ids=cves))

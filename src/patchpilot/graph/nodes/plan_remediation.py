@@ -21,6 +21,7 @@ import httpx
 
 from patchpilot.graph.state import AdvisoryBranch, Budget, Plan, SandboxResult
 from patchpilot.guardrails.contracts import ContractViolation
+from patchpilot.guardrails.injection import classify
 from patchpilot.llm.changelog import BreakingChanges, SummariserFn, summarise_breaking_changes
 from patchpilot.policy.rules import decide_after_plan
 from patchpilot.recorded.store import MissingFixture
@@ -102,6 +103,16 @@ def make_plan_remediation_node(summariser: SummariserFn | None):
             changelog = ChangelogOutput(package=adv.package)
             notes.append(f"changelog unavailable: {_describe(e)}")
         notes += changelog.notes
+
+        # Release notes are untrusted too (rule 4), and they are about to be handed to a model.
+        # ingest only saw the advisory body, so classify the retrieved chunks and fold the result
+        # in before the policy decides — an injected changelog has to reach a human.
+        changelog_flag = classify(*[chunk.text for chunk in changelog.chunks])
+        if changelog_flag.flagged and not adv.injection_flag.flagged:
+            adv.injection_flag = changelog_flag
+            notes.append(f"changelog flagged: {changelog_flag.reason}")
+        elif changelog_flag.flagged:
+            notes.append(f"changelog also flagged: {changelog_flag.reason}")
 
         try:
             summary, delta, summary_notes = summarise_breaking_changes(

@@ -16,7 +16,7 @@ from patchpilot.graph.nodes.human_gate import (
     build_gate_payload,
     human_gate,
 )
-from patchpilot.graph.routing import route_to_human_gate
+from patchpilot.graph.routing import route_after_gate, route_to_human_gate
 from patchpilot.graph.state import (
     AdvisoryState,
     CallSite,
@@ -74,13 +74,24 @@ def test_route_sends_a_needs_human_decision_to_the_gate():
 
 @pytest.mark.parametrize("decision", ["auto_fix", "not_applicable", "accept_risk", "halted"])
 def test_route_never_gates_a_decision_the_policy_settled(decision):
+    """No human is asked about a decision the policy already settled — including auto_fix, which
+    since step 7 goes straight to execute_pr rather than stopping."""
+    assert route_to_human_gate({"advisory": make_advisory(decision=decision)}) != "human_gate"
+
+
+def test_an_auto_fix_goes_straight_to_the_pull_request():
+    assert route_to_human_gate({"advisory": make_advisory(decision="auto_fix")}) == "execute_pr"
+
+
+@pytest.mark.parametrize("decision", ["not_applicable", "accept_risk", "halted"])
+def test_a_terminal_decision_ends_the_branch(decision):
     assert route_to_human_gate({"advisory": make_advisory(decision=decision)}) == END
 
 
 def test_route_does_not_gate_on_triggers_alone():
     """Triggers are an input to the decision, not a substitute for it."""
     adv = make_advisory(decision="auto_fix", risk=Risk(score=6.2, tier="high", triggers=["x"]))
-    assert route_to_human_gate({"advisory": adv}) == END
+    assert route_to_human_gate({"advisory": adv}) != "human_gate"
 
 
 def test_an_undecided_advisory_is_not_sent_to_a_human():
@@ -241,3 +252,33 @@ def test_human_decision_timestamp_is_utc(monkeypatch):
     decided = out["advisory"].human.decided_at
     assert decided.utcoffset() == UTC.utcoffset(None)
     assert abs((datetime.now(UTC) - decided).total_seconds()) < 60
+
+
+# ------------------------------------------------------------------ routing after the gate
+
+
+def test_only_an_approval_opens_a_pull_request():
+    adv = make_advisory(
+        decision="needs_human",
+        human=HumanDecision(reviewer="alice", verdict="approve", decided_at=datetime.now(UTC)),
+    )
+    assert route_after_gate({"advisory": adv}) == "execute_pr"
+
+
+@pytest.mark.parametrize("verdict", ["reject", "modify"])
+def test_any_other_verdict_ends_the_branch(verdict):
+    adv = make_advisory(
+        decision="needs_human",
+        human=HumanDecision(reviewer="bob", verdict=verdict, decided_at=datetime.now(UTC)),
+    )
+    assert route_after_gate({"advisory": adv}) == END
+
+
+def test_a_branch_halted_at_the_gate_never_reaches_the_pull_request():
+    """A malformed resume halts; a halted branch must not then open a PR."""
+    adv = make_advisory(decision="halted", halt_reason="human_gate: contract violated")
+    assert route_after_gate({"advisory": adv}) == END
+
+
+def test_an_ungated_branch_with_no_verdict_ends():
+    assert route_after_gate({"advisory": make_advisory(human=None)}) == END

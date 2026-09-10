@@ -296,6 +296,12 @@ def decide_after_plan(
         if "budget_near_limit" not in triggers:
             triggers.append("budget_near_limit")
 
+    # risk_policy captured the flag as it stood at ingest; plan_remediation may have raised it
+    # since, after reading the changelog. Re-check the flag itself rather than its old snapshot.
+    if adv.injection_flag.flagged and "injection_flagged" not in triggers:
+        triggers.append("injection_flagged")
+        reasons.append(f"untrusted text was flagged: {adv.injection_flag.reason}")
+
     if triggers:
         reasons.append("human gate required: " + ", ".join(triggers))
         return PlanOutcome("needs_human", triggers, reasons)

@@ -30,6 +30,23 @@ def llm_enabled() -> bool:
     )
 
 
+def current_trace_url() -> str | None:
+    """The LangSmith URL for the run in progress, when tracing is on.
+
+    Best effort by design: it goes into a PR body and a ledger row, and neither is worth failing a
+    remediation over. Tracing off, langsmith not installed, or no active run all give None.
+    """
+    if os.environ.get("LANGSMITH_TRACING", "").strip().lower() != "true":
+        return None
+    try:
+        from langsmith.run_helpers import get_current_run_tree
+
+        run = get_current_run_tree()
+        return run.get_url() if run is not None else None
+    except Exception:
+        return None
+
+
 class MissingLLMExtra(RuntimeError):
     """A key is configured but langchain-openai is not installed."""
 
