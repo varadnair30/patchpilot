@@ -3,6 +3,6 @@
   "baseline_failed": [],
   "flaky_rerun": [],
   "newly_failing": [],
-  "reason": "starlette==0.40.0 cannot be installed alongside the repo's other pins: ERROR: Cannot install -r /work/requirements.txt (line 2) and starlette==0.40.0 because these package versions have conflicting dependencies.",
+  "reason": "starlette==0.40.0 cannot be installed alongside the repo's other pins: ERROR: Cannot install -r /build/requirements.txt (line 2) and starlette==0.40.0 because these package versions have conflicting dependencies.",
   "supported": false
 }

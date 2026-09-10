@@ -233,7 +233,13 @@ def _run_in_container(work: Path, shape: ProjectShape, image: str, timeout: int)
     prints no "FAILED" lines and parses as a clean, green run — which would hand `auto_fix` to a
     bump that cannot even be installed.
     """
+    # The repository is mounted READ-ONLY and copied to a container-private directory first.
+    # A read-write bind mount lets the container's root user litter the host directory with
+    # root-owned __pycache__/.pytest_cache/egg-info, which the (non-root) caller then cannot
+    # delete — a PermissionError on temp-directory cleanup that only shows up on Linux, because
+    # Docker Desktop masks ownership on Windows and macOS.
     script = (
+        "cp -a /src /build && cd /build && "
         f"{' '.join(shape.install_command)} ; echo {INSTALL_SENTINEL}=$? ; "
         f"{' '.join(shape.test_command)} ; echo {TEST_SENTINEL}=$?"
     )
@@ -243,13 +249,13 @@ def _run_in_container(work: Path, shape: ProjectShape, image: str, timeout: int)
             "run",
             "--rm",
             "-v",
-            f"{work}:/work",
+            f"{work}:/src:ro",
             "-v",
             f"{PIP_CACHE_VOLUME}:/root/.cache/pip",
-            "-w",
-            "/work",
             "-e",
             "PIP_DISABLE_PIP_VERSION_CHECK=1",
+            "-e",
+            "PYTHONDONTWRITEBYTECODE=1",
             image,
             "sh",
             "-lc",
@@ -327,7 +333,9 @@ def run_sandbox(inp: SandboxInput) -> SandboxOutput:
         )
 
     notes: list[str] = []
-    with tempfile.TemporaryDirectory(prefix="patchpilot-sandbox-") as tmp:
+    with tempfile.TemporaryDirectory(
+        prefix="patchpilot-sandbox-", ignore_cleanup_errors=True
+    ) as tmp:
         # Work on a copy: the sandbox must never modify the repository it was pointed at.
         work = Path(tmp) / Path(inp.repo_path).name
         shutil.copytree(
