@@ -105,6 +105,11 @@ class _FileAnalysis(ast.NodeVisitor):
         self.import_lines: list[int] = []
         self.references: list[tuple[int, str]] = []  # (line, resolved dotted path)
         self.attr_names: list[tuple[int, str]] = []  # (line, bare attribute/name)
+        # (line, module name) for importlib/__import__ calls; the name is None when the argument
+        # is computed, which is the case static analysis fundamentally cannot see through.
+        self.dynamic_imports: list[tuple[int, str | None]] = []
+        self._importlib_aliases: set[str] = {"importlib"}
+        self._import_fns: set[str] = {"__import__"}
 
     def _is_ours(self, dotted: str) -> bool:
         head = dotted.split(".")[0]
@@ -112,6 +117,8 @@ class _FileAnalysis(ast.NodeVisitor):
 
     def visit_Import(self, node: ast.Import) -> None:
         for a in node.names:
+            if a.name == "importlib":
+                self._importlib_aliases.add(a.asname or "importlib")
             if self._is_ours(a.name):
                 self.import_lines.append(node.lineno)
                 self.aliases[(a.asname or a.name.split(".")[0])] = (
@@ -124,6 +131,10 @@ class _FileAnalysis(ast.NodeVisitor):
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         mod = node.module or ""
+        if mod == "importlib":
+            for a in node.names:
+                if a.name == "import_module":
+                    self._import_fns.add(a.asname or a.name)
         if node.level == 0 and self._is_ours(mod):
             self.import_lines.append(node.lineno)
             for a in node.names:
@@ -140,6 +151,27 @@ class _FileAnalysis(ast.NodeVisitor):
             base = self._resolve(node.value)
             return f"{base}.{node.attr}" if base else None
         return None
+
+    def visit_Call(self, node: ast.Call) -> None:
+        """`importlib.import_module(...)` and `__import__(...)`: imports the AST cannot follow."""
+        fn = node.func
+        dynamic = (
+            isinstance(fn, ast.Name)
+            and fn.id in self._import_fns
+            or isinstance(fn, ast.Attribute)
+            and fn.attr == "import_module"
+            and isinstance(fn.value, ast.Name)
+            and fn.value.id in self._importlib_aliases
+        )
+        if dynamic:
+            first = node.args[0] if node.args else None
+            literal = (
+                first.value
+                if isinstance(first, ast.Constant) and isinstance(first.value, str)
+                else None
+            )
+            self.dynamic_imports.append((node.lineno, literal))
+        self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
         self.attr_names.append((node.lineno, node.attr))
@@ -177,6 +209,8 @@ def analyze_reachability(inp: ReachabilityInput) -> ReachabilityOutput:
 
     import_sites: list[str] = []
     reexport_sites: list[str] = []
+    dynamic_named: list[str] = []
+    dynamic_unknown: list[str] = []
     call_sites: list[CallSite] = []
     runtime_import = False
     test_import = False
@@ -191,9 +225,22 @@ def analyze_reachability(inp: ReachabilityInput) -> ReachabilityOutput:
             continue
         fa = _FileAnalysis(roots)
         fa.visit(tree)
-        if not fa.import_lines:
+        if not fa.import_lines and not fa.dynamic_imports:
             continue
         rel = py.relative_to(root).as_posix()
+        for ln, literal in fa.dynamic_imports:
+            if literal is None:
+                dynamic_unknown.append(f"{rel}:{ln}")
+            elif any(literal.split(".")[0] == r.split(".")[0] for r in package_roots):
+                dynamic_named.append(f"{rel}:{ln}")
+                # A dynamic import is still an import: it decides runtime-vs-test scope the same
+                # way a static one does. Without this the package looks test-only to the policy.
+                if _is_test_path(py, root):
+                    test_import = True
+                else:
+                    runtime_import = True
+        if not fa.import_lines:
+            continue
         is_test = _is_test_path(py, root)
         lines = source.splitlines()
         direct = [
@@ -246,11 +293,31 @@ def analyze_reachability(inp: ReachabilityInput) -> ReachabilityOutput:
 
     imported = bool(import_sites)
     via_reexport = bool(call_sites) and not imported
-    if via_reexport:
+    if dynamic_named:
+        # The package is imported through a name the AST cannot follow, so we can see *that* it is
+        # used but not *what* is called on it. DESIGN §3: dynamic imports mean low confidence.
+        imported = True
+        import_sites = import_sites + dynamic_named
+        symbol_called: bool | None = None
+        confidence = 0.40
+        notes.append(
+            f"imported dynamically at {dynamic_named[0]}; the AST cannot tell which symbols are "
+            "reached through the returned module"
+        )
+    elif via_reexport:
         confidence = 0.85
-        symbol_called: bool | None = True
+        symbol_called = True
         notes.append(
             f"not imported directly; vulnerable symbol reached via re-export ({reexport_sites[0]})"
+        )
+    elif not imported and dynamic_unknown:
+        # Something in this repository imports by computed name. "Never imported" is no longer a
+        # claim static analysis can make, so it must not be made confidently.
+        symbol_called = None
+        confidence = 0.40
+        notes.append(
+            f"no static import found, but a computed import at {dynamic_unknown[0]} means the "
+            "absence of an import proves nothing"
         )
     elif not imported:
         confidence = 0.90

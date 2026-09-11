@@ -5,6 +5,10 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write   # the eval summary is posted as a PR comment
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,5 +21,47 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
       - run: ruff check src tests
+      - run: ruff format --check src tests
       - run: pytest
-      # Step 8 adds: python evals/run_evals.py  →  gate on decision flips / baseline / cost
+
+      # The blocking half of the gate: exact, deterministic, no model, no network, no Docker.
+      # It runs on every pull request including from forks, where secrets are unavailable — a
+      # decision flip must never go unnoticed because a key was missing.
+      - name: Golden set
+        id: evals
+        run: python evals/run_evals.py --comment eval-comment.md
+
+      - name: Upload eval summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-summary
+          path: |
+            evals/summary.json
+            eval-comment.md
+
+      - name: Comment the summary on the pull request
+        # Skipped for forks, where the token is read-only. The gate itself already passed or failed.
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('eval-comment.md')) return;
+            const body = fs.readFileSync('eval-comment.md', 'utf8');
+            const marker = '## PatchPilot golden set';
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+
+            // Update the existing comment rather than adding one per push.
+            const comments = await github.paginate(
+              github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 }
+            );
+            const mine = comments.find(
+              c => c.user.type === 'Bot' && c.body.startsWith(marker)
+            );
+            if (mine) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

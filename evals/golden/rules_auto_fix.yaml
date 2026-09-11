@@ -1,0 +1,244 @@
+# The boundaries of auto_fix — the only decision that acts without asking anyone.
+#
+# Every condition in thresholds.yaml:auto_fix has to hold at once, so these cases sit deliberately
+# close to the edge: one of them is the clean case, the rest change exactly one thing and check that
+# the decision moves.
+
+cases:
+  - id: autofix-canonical-patch
+    source: synthetic
+    rule: auto_fix
+    description: Patch bump, reachable, no triggers, green sandbox.
+    rationale: >
+      The shape of a fix that needs nobody: the maintainer shipped a patch release, the repository
+      uses the vulnerable symbol so the fix is worth applying, and the test suite is no redder after
+      the bump than before it.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.dangerous_call()
+      tests/test_app.py: |
+        from app.main import start
+
+        def test_start():
+            assert start() is not None
+    advisory:
+      advisory_id: SYN-AF-001
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 6.5
+      epss: 0.01
+      vulnerable_symbols: [widget.dangerous_call]
+    recorded:
+      pypi/project:
+        widget:
+          name: widget
+          versions:
+            1.0.0: {yanked: false}
+            1.0.1: {yanked: false}
+      sandbox:
+        autofix-canonical-patch/widget==1.0.0..1.0.1:
+          supported: true
+          reason: recorded for the golden set
+          baseline_failed: []
+          after_bump_failed: []
+          newly_failing: []
+          flaky_rerun: []
+    expect:
+      decision: auto_fix
+      triggers: []
+
+  - id: autofix-survives-a-flaky-test
+    source: synthetic
+    rule: auto_fix
+    description: A test failed once after the bump and passed on the rerun.
+    rationale: >
+      Flakes are not regressions. The sandbox reruns anything that newly failed, and a test that
+      passes the second time is recorded as flaky rather than counted against the bump — otherwise
+      a single noisy test would permanently block automatic security fixes for a repository.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.dangerous_call()
+      tests/test_app.py: |
+        from app.main import start
+
+        def test_sometimes_slow():
+            assert start() is not None
+    advisory:
+      advisory_id: SYN-AF-002
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 6.5
+      epss: 0.01
+      vulnerable_symbols: [widget.dangerous_call]
+    recorded:
+      pypi/project:
+        widget:
+          name: widget
+          versions:
+            1.0.0: {yanked: false}
+            1.0.1: {yanked: false}
+      sandbox:
+        autofix-survives-a-flaky-test/widget==1.0.0..1.0.1:
+          supported: true
+          reason: recorded for the golden set
+          baseline_failed: []
+          after_bump_failed: ["tests/test_app.py::test_sometimes_slow"]
+          newly_failing: []
+          flaky_rerun: ["tests/test_app.py::test_sometimes_slow"]
+    expect:
+      decision: auto_fix
+      triggers: []
+
+  - id: autofix-blocked-when-used-only-from-tests
+    source: synthetic
+    rule: test_only_usage
+    description: The vulnerable symbol is reached only from the test suite.
+    rationale: >
+      A dependency the shipped application never touches is a different risk from one it does, and
+      possibly a misdeclared dev dependency. Worth a human glance rather than a silent production
+      pull request.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        def start():
+            return "no dependency here"
+      tests/test_app.py: |
+        import widget
+
+        def test_direct():
+            assert widget.dangerous_call() is not None
+    advisory:
+      advisory_id: SYN-AF-003
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 6.5
+      epss: 0.01
+      vulnerable_symbols: [widget.dangerous_call]
+    recorded:
+      pypi/project:
+        widget:
+          name: widget
+          versions:
+            1.0.0: {yanked: false}
+            1.0.1: {yanked: false}
+      sandbox:
+        autofix-blocked-when-used-only-from-tests/widget==1.0.0..1.0.1:
+          supported: true
+          reason: recorded for the golden set
+          baseline_failed: []
+          after_bump_failed: []
+          newly_failing: []
+          flaky_rerun: []
+    expect:
+      decision: needs_human
+      triggers: [test_only_usage]
+
+  - id: autofix-unavailable-on-import-only-evidence
+    source: synthetic
+    rule: low_confidence
+    description: The advisory names no symbols, so only import-level evidence exists.
+    rationale: >
+      We know the package is used and nothing about whether the vulnerable code path is. That is
+      genuinely weak evidence, and weak evidence is not a basis for acting without asking — even
+      when the bump itself is a clean patch.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.anything()
+      tests/test_app.py: |
+        from app.main import start
+
+        def test_start():
+            assert start() is not None
+    advisory:
+      advisory_id: SYN-AF-004
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 9.8
+      epss: 0.03
+      vulnerable_symbols: []
+    recorded:
+      pypi/project:
+        widget:
+          name: widget
+          versions:
+            1.0.0: {yanked: false}
+            1.0.1: {yanked: false}
+      sandbox:
+        autofix-unavailable-on-import-only-evidence/widget==1.0.0..1.0.1:
+          supported: true
+          reason: recorded for the golden set
+          baseline_failed: []
+          after_bump_failed: []
+          newly_failing: []
+          flaky_rerun: []
+    expect:
+      decision: needs_human
+      triggers: ["low_confidence:0.50"]
+
+  - id: autofix-allowed-on-an-informational-tier
+    source: synthetic
+    rule: auto_fix
+    description: An informational tier reports, it does not gate.
+    rationale: >
+      tiers.yaml separates sensitive tiers, which always gate, from informational ones that exist
+      only so the report reads well. requests is informational: being an HTTP client is not by
+      itself a reason to stop an otherwise clean patch bump.
+    files:
+      requirements.txt: "requests==2.31.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        import requests
+
+        def fetch(url):
+            return requests.get(url)
+      tests/test_app.py: |
+        from app.main import fetch
+
+        def test_fetch():
+            assert fetch is not None
+    advisory:
+      advisory_id: SYN-AF-005
+      package: requests
+      installed_version: 2.31.0
+      min_fixed_version: 2.31.1
+      cvss: 6.5
+      epss: 0.01
+      vulnerable_symbols: [requests.get]
+    recorded:
+      pypi/project:
+        requests:
+          name: requests
+          versions:
+            2.31.0: {yanked: false}
+            2.31.1: {yanked: false}
+      sandbox:
+        autofix-allowed-on-an-informational-tier/requests==2.31.0..2.31.1:
+          supported: true
+          reason: recorded for the golden set
+          baseline_failed: []
+          after_bump_failed: []
+          newly_failing: []
+          flaky_rerun: []
+    expect:
+      decision: auto_fix
+      triggers: []

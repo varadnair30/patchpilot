@@ -1,0 +1,67 @@
+# Changing a ratified decision needs two people.
+#
+# `evals/golden/**` is where human decisions live. Editing an `expect` block means "the answer a
+# reviewer gave is no longer the answer we want", which is exactly the change that should be hard
+# to make quietly — including for whoever wrote the policy change that made it necessary.
+#
+# Branch protection enforces the merge; this workflow makes the reason visible on the pull request
+# and fails loudly when the second approval is missing, so nobody discovers it at merge time.
+
+name: golden-update
+
+on:
+  pull_request_target:
+    paths:
+      - "evals/golden/**"
+
+permissions:
+  pull-requests: read
+  contents: read
+
+jobs:
+  two-approvals:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require two approving reviews
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+
+            const reviews = await github.paginate(
+              github.rest.pulls.listReviews, { owner, repo, pull_number, per_page: 100 }
+            );
+
+            // Only the latest review from each person counts: an approval that was later changed
+            // to "request changes" is not an approval.
+            const latest = new Map();
+            for (const review of reviews) {
+              if (review.state === 'COMMENTED') continue;
+              latest.set(review.user.login, review.state);
+            }
+            const author = context.payload.pull_request.user.login;
+            const approvers = [...latest.entries()]
+              .filter(([login, state]) => state === 'APPROVED' && login !== author)
+              .map(([login]) => login);
+
+            const files = await github.paginate(
+              github.rest.pulls.listFiles, { owner, repo, pull_number, per_page: 100 }
+            );
+            const golden = files
+              .filter(f => f.filename.startsWith('evals/golden/'))
+              .map(f => `${f.filename} (+${f.additions}/-${f.deletions})`);
+
+            core.summary
+              .addHeading('Golden set change')
+              .addRaw('This pull request edits ratified decisions, so it needs two approvals.')
+              .addList(golden)
+              .addRaw(`Approvals so far: ${approvers.length ? approvers.join(', ') : 'none'}`)
+              .write();
+
+            if (approvers.length < 2) {
+              core.setFailed(
+                `evals/golden/** changed and needs 2 approvals, found ${approvers.length}. ` +
+                `Files: ${golden.join(', ')}`
+              );
+            }
