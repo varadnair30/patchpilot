@@ -1,0 +1,425 @@
+# One case per gate trigger. A trigger is the policy saying "a human decides this one", so each of
+# these pins a specific reason a fix is not applied automatically.
+#
+# Each repository carries a real test file and a pytest pin, because the sandbox refuses to give a
+# verdict on a project it cannot detect a test runner for — without that, every case here would
+# collect an incidental `sandbox_unsupported` and stop testing the trigger it is named after.
+
+cases:
+  - id: gate-epss-high
+    source: synthetic
+    rule: epss_human
+    description: Exploitation is actively probable, so a human sees it regardless of the bump size.
+    rationale: >
+      EPSS above the cutoff means this bug is being exploited in the wild now. Even a clean patch
+      bump with a green sandbox gets a human, because the cost of being wrong has stopped being
+      theoretical.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.dangerous_call()
+      tests/test_app.py: |
+        from app.main import start
+
+        def test_start():
+            assert start() is not None
+    advisory:
+      advisory_id: SYN-GATE-EPSS
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 8.1
+      epss: 0.62
+      vulnerable_symbols: [widget.dangerous_call]
+    recorded:
+      pypi/project:
+        widget:
+          name: widget
+          versions:
+            1.0.0: {yanked: false}
+            1.0.1: {yanked: false}
+      sandbox:
+        gate-epss-high/widget==1.0.0..1.0.1:
+          supported: true
+          reason: recorded for the golden set
+          baseline_failed: []
+          after_bump_failed: []
+          newly_failing: []
+          flaky_rerun: []
+    expect:
+      decision: needs_human
+      triggers: ["epss_high:0.620"]
+
+  - id: gate-no-fix-available
+    source: synthetic
+    rule: no_fix_available
+    description: The advisory has no released fix.
+    rationale: >
+      There is nothing to bump to. A human decides between mitigating, vendoring or accepting, and
+      none of those is a call this tool should make on its own.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.dangerous_call()
+      tests/test_app.py: |
+        from app.main import start
+
+        def test_start():
+            assert start() is not None
+    advisory:
+      advisory_id: SYN-GATE-NOFIX
+      package: widget
+      installed_version: 1.0.0
+      cvss: 7.2
+      epss: 0.01
+      vulnerable_symbols: [widget.dangerous_call]
+    expect:
+      decision: needs_human
+      triggers: [no_fix_available]
+
+  - id: gate-major-bump
+    source: synthetic
+    rule: max_bump
+    description: The only safe version is a major release.
+    rationale: >
+      A major bump is the maintainer deliberately breaking their API. A green test suite is
+      evidence but not proof, so the ceiling stops here and a human confirms.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.dangerous_call()
+      tests/test_app.py: |
+        from app.main import start
+
+        def test_start():
+            assert start() is not None
+    advisory:
+      advisory_id: SYN-GATE-MAJOR
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 2.0.0
+      cvss: 7.4
+      epss: 0.01
+      vulnerable_symbols: [widget.dangerous_call]
+    recorded:
+      pypi/project:
+        widget:
+          name: widget
+          versions:
+            1.0.0: {yanked: false}
+            2.0.0: {yanked: false}
+      sandbox:
+        gate-major-bump/widget==1.0.0..2.0.0:
+          supported: true
+          reason: recorded for the golden set
+          baseline_failed: []
+          after_bump_failed: []
+          newly_failing: []
+          flaky_rerun: []
+    expect:
+      decision: needs_human
+      triggers: [major_bump]
+
+  - id: gate-tests-newly-failing
+    source: synthetic
+    rule: require_clean_sandbox
+    description: The bump is a patch, but tests that passed before now fail.
+    rationale: >
+      This is the sandbox earning its keep. The version numbers say the change is safe and the
+      actual test run says otherwise; the test run wins.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.dangerous_call()
+      tests/test_app.py: |
+        from app.main import start
+
+        def test_round_trip():
+            assert start() is not None
+    advisory:
+      advisory_id: SYN-GATE-TESTS
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 6.5
+      epss: 0.01
+      vulnerable_symbols: [widget.dangerous_call]
+    recorded:
+      pypi/project:
+        widget:
+          name: widget
+          versions:
+            1.0.0: {yanked: false}
+            1.0.1: {yanked: false}
+      sandbox:
+        gate-tests-newly-failing/widget==1.0.0..1.0.1:
+          supported: true
+          reason: recorded for the golden set
+          baseline_failed: []
+          after_bump_failed: ["tests/test_app.py::test_round_trip"]
+          newly_failing: ["tests/test_app.py::test_round_trip"]
+          flaky_rerun: []
+    expect:
+      decision: needs_human
+      triggers: ["tests_newly_failing:1"]
+
+  - id: gate-baseline-red-is-not-blamed-on-the-bump
+    source: synthetic
+    rule: require_clean_sandbox
+    description: A test that was already failing does not block the fix.
+    rationale: >
+      The baseline run exists precisely for this. A repository with a pre-existing red test would
+      otherwise never receive an automatic security fix, which would punish exactly the projects
+      that most need one.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.dangerous_call()
+      tests/test_app.py: |
+        from app.main import start
+
+        def test_known_red():
+            assert start() is not None
+    advisory:
+      advisory_id: SYN-GATE-BASELINE
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 6.5
+      epss: 0.01
+      vulnerable_symbols: [widget.dangerous_call]
+    recorded:
+      pypi/project:
+        widget:
+          name: widget
+          versions:
+            1.0.0: {yanked: false}
+            1.0.1: {yanked: false}
+      sandbox:
+        gate-baseline-red-is-not-blamed-on-the-bump/widget==1.0.0..1.0.1:
+          supported: true
+          reason: recorded for the golden set
+          baseline_failed: ["tests/test_app.py::test_known_red"]
+          after_bump_failed: ["tests/test_app.py::test_known_red"]
+          newly_failing: []
+          flaky_rerun: []
+    expect:
+      decision: auto_fix
+      triggers: []
+
+  - id: gate-sandbox-unproven
+    source: synthetic
+    rule: require_clean_sandbox
+    description: The bump could not be test-proven at all.
+    rationale: >
+      Unproven is not the same as clean. With no verdict there is no evidence the bump is safe, so
+      it goes to a human rather than being treated as passing.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.dangerous_call()
+      tests/test_app.py: |
+        from app.main import start
+
+        def test_start():
+            assert start() is not None
+    advisory:
+      advisory_id: SYN-GATE-UNPROVEN
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 6.5
+      epss: 0.01
+      vulnerable_symbols: [widget.dangerous_call]
+    recorded:
+      pypi/project:
+        widget:
+          name: widget
+          versions:
+            1.0.0: {yanked: false}
+            1.0.1: {yanked: false}
+      sandbox:
+        gate-sandbox-unproven/widget==1.0.0..1.0.1:
+          supported: false
+          reason: "the project does not install before the bump: ERROR: ResolutionImpossible"
+          baseline_failed: []
+          after_bump_failed: []
+          newly_failing: []
+          flaky_rerun: []
+    expect:
+      decision: needs_human
+      triggers: [sandbox_unsupported]
+
+  - id: gate-dependency-conflict
+    source: synthetic
+    rule: dependency_conflict
+    description: Another pin in the repository forbids the safe version.
+    rationale: >
+      The fix is not self-contained: applying it means bumping something else too. That is a change
+      of scope the reviewer has to agree to, not one to make quietly.
+    files:
+      requirements.txt: "widget==1.0.0\nframework==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.dangerous_call()
+      tests/test_app.py: |
+        from app.main import start
+
+        def test_start():
+            assert start() is not None
+    advisory:
+      advisory_id: SYN-GATE-CONFLICT
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 6.5
+      epss: 0.01
+      vulnerable_symbols: [widget.dangerous_call]
+    recorded:
+      pypi/project:
+        widget:
+          name: widget
+          versions:
+            1.0.0: {yanked: false}
+            1.0.1: {yanked: false}
+      pypi/requires:
+        framework==1.0.0:
+          requires_dist: ["widget<1.0.1,>=1.0.0"]
+      sandbox:
+        gate-dependency-conflict/widget==1.0.0..1.0.1:
+          supported: true
+          reason: recorded for the golden set
+          baseline_failed: []
+          after_bump_failed: []
+          newly_failing: []
+          flaky_rerun: []
+    expect:
+      decision: needs_human
+      triggers: [dependency_conflict]
+
+  - id: gate-low-confidence-dynamic-import
+    source: synthetic
+    rule: low_confidence
+    description: The package is imported through importlib, so the AST cannot see what is called.
+    rationale: >
+      A computed import is exactly the case static analysis cannot answer. We can see the package
+      is used and cannot see which symbols are reached, so the honest confidence is low and a human
+      decides. Before this case existed the analyser reported "never imported" at 0.90 confidence
+      and the advisory was dismissed outright — a wrong answer given confidently.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/main.py: |
+        import importlib
+
+        def start():
+            module = importlib.import_module("widget")
+            return module.dangerous_call()
+      tests/test_app.py: |
+        from app.main import start
+
+        def test_start():
+            assert start() is not None
+    advisory:
+      advisory_id: SYN-GATE-CONF
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 9.8
+      epss: 0.01
+      vulnerable_symbols: [widget.dangerous_call]
+    recorded:
+      pypi/project:
+        widget:
+          name: widget
+          versions:
+            1.0.0: {yanked: false}
+            1.0.1: {yanked: false}
+      sandbox:
+        gate-low-confidence-dynamic-import/widget==1.0.0..1.0.1:
+          supported: true
+          reason: recorded for the golden set
+          baseline_failed: []
+          after_bump_failed: []
+          newly_failing: []
+          flaky_rerun: []
+    expect:
+      decision: needs_human
+      triggers: ["low_confidence:0.40"]
+
+  - id: gate-computed-import-blocks-confident-dismissal
+    source: synthetic
+    rule: low_confidence
+    description: A computed import elsewhere means "never imported" is not a confident claim.
+    rationale: >
+      The package is nowhere in the import graph, which would normally be not_applicable at high
+      confidence. But this repository imports by computed name, so the absence of a static import
+      proves nothing and the dismissal is not available.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\npytest==8.3.2\n"
+      app/plugins.py: |
+        import importlib
+
+        def load(name):
+            return importlib.import_module(name)
+      tests/test_app.py: |
+        from app.plugins import load
+
+        def test_load():
+            assert load("json") is not None
+    advisory:
+      advisory_id: SYN-GATE-COMPUTED
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 9.8
+      # Above the accept_risk EPSS cutoff on purpose: otherwise this is accepted on its low score
+      # before confidence is ever consulted, and the case would not test what it claims to.
+      epss: 0.03
+      vulnerable_symbols: [widget.dangerous_call]
+    recorded:
+      pypi/project:
+        widget:
+          name: widget
+          versions:
+            1.0.0: {yanked: false}
+            1.0.1: {yanked: false}
+      sandbox:
+        gate-computed-import-blocks-confident-dismissal/widget==1.0.0..1.0.1:
+          supported: true
+          reason: recorded for the golden set
+          baseline_failed: []
+          after_bump_failed: []
+          newly_failing: []
+          flaky_rerun: []
+    expect:
+      decision: needs_human
+      triggers: ["low_confidence:0.40"]

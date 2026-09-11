@@ -1,0 +1,227 @@
+# Rules that reach a terminal decision inside risk_policy, before any remediation is planned.
+#
+# Each case is the smallest repository that exercises one rule, so a flip points at exactly one
+# line of policy/rules.py rather than at "something changed".
+
+cases:
+  # ---------------------------------------------------------------- not_applicable
+
+  - id: rule-na-symbol-named-but-not-called
+    source: synthetic
+    rule: not_applicable
+    description: Package imported, advisory names a symbol, nothing references it.
+    rationale: >
+      The strongest form of "does not apply": we know what to look for and it is not there. High
+      confidence, no sensitive tier, so the advisory is dismissed without planning a bump.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.safe_call()
+    advisory:
+      advisory_id: SYN-NA-001
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 7.5
+      epss: 0.004
+      vulnerable_symbols: [widget.dangerous_call]
+    expect:
+      decision: not_applicable
+      triggers: []
+
+  - id: rule-na-package-never-imported
+    source: synthetic
+    rule: not_applicable
+    description: The dependency is pinned but nothing in the repository imports it.
+    rationale: >
+      A transitive or leftover pin. Nothing can reach the vulnerable code because nothing reaches
+      the package at all.
+    files:
+      requirements.txt: "widget==1.0.0\nother==2.0.0\n"
+      app/main.py: |
+        import other
+
+        def start():
+            return other.run()
+    advisory:
+      advisory_id: SYN-NA-002
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 9.1
+      epss: 0.006
+      vulnerable_symbols: [widget.dangerous_call]
+    expect:
+      decision: not_applicable
+      triggers: []
+
+  - id: rule-na-high-cvss-still-dismissed
+    source: synthetic
+    rule: not_applicable
+    description: A critical CVSS does not override unreachability.
+    rationale: >
+      Severity describes the bug, not this repository's exposure to it. An unreachable critical is
+      still unreachable; that is the entire argument for doing reachability analysis.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.safe_call()
+    advisory:
+      advisory_id: SYN-NA-003
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 9.8
+      epss: 0.009
+      vulnerable_symbols: [widget.dangerous_call]
+    expect:
+      decision: not_applicable
+      triggers: []
+
+  # ---------------------------------------------------------------- accept_risk
+
+  - id: rule-accept-dev-only-low-epss
+    source: synthetic
+    rule: accept_risk
+    description: Dev-only dependency with negligible exploitation probability.
+    rationale: >
+      A formatter or linter runs on a developer's machine against the developer's own source. With
+      EPSS below the cutoff the residual risk is accepted rather than spending a human on it.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\nformatter==3.0.0\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.safe_call()
+    advisory:
+      advisory_id: SYN-AR-001
+      package: formatter
+      installed_version: 3.0.0
+      is_dev: true
+      min_fixed_version: 3.0.1
+      cvss: 5.5
+      epss: 0.001
+      vulnerable_symbols: [formatter.parse]
+    expect:
+      decision: accept_risk
+      triggers: []
+
+  - id: rule-accept-dev-only-is-checked-before-reachability
+    source: synthetic
+    rule: accept_risk
+    description: A dev tool that IS imported still accepts risk on low EPSS.
+    rationale: >
+      The dev rule runs before the static-dismissal rule on purpose. Dev tooling is executed, not
+      imported, so "never imported" proves nothing about it — the ordering is deliberate and this
+      case pins it.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\nformatter==3.0.0\n"
+      tests/test_style.py: |
+        import formatter
+
+        def test_parses():
+            assert formatter.parse("x")
+    advisory:
+      advisory_id: SYN-AR-002
+      package: formatter
+      installed_version: 3.0.0
+      is_dev: true
+      min_fixed_version: 3.0.1
+      cvss: 6.1
+      epss: 0.002
+      vulnerable_symbols: [formatter.parse]
+    expect:
+      decision: accept_risk
+      triggers: []
+
+  - id: rule-accept-import-only-low-score
+    source: synthetic
+    rule: accept_risk
+    description: Import-only evidence, low score, negligible EPSS.
+    rationale: >
+      The advisory names no symbols, so we can only say the package is imported. With a low score
+      and an EPSS this small, the honest answer is to accept the risk rather than to claim either
+      that it is reachable or that it is not.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      app/main.py: |
+        import widget
+
+        def start():
+            return widget.anything()
+    advisory:
+      advisory_id: SYN-AR-003
+      package: widget
+      installed_version: 1.0.0
+      min_fixed_version: 1.0.1
+      cvss: 3.1
+      epss: 0.001
+      vulnerable_symbols: []
+    expect:
+      decision: accept_risk
+      triggers: []
+
+  # ---------------------------------------------------------------- the boundaries
+
+  - id: rule-dev-only-high-epss-is-not-accepted
+    source: synthetic
+    rule: accept_risk
+    description: The dev-only shortcut stops at the EPSS cutoff.
+    rationale: >
+      Dev-only is not a blanket dismissal. An actively exploited bug in a developer tool is a
+      supply-chain foothold, so once EPSS crosses the cutoff the case leaves accept_risk and is
+      treated like anything else.
+    files:
+      requirements.txt: "widget==1.0.0\n"
+      requirements-dev.txt: "-r requirements.txt\nformatter==3.0.0\n"
+      tests/test_style.py: |
+        import formatter
+
+        def test_parses():
+            assert formatter.parse("x")
+    advisory:
+      advisory_id: SYN-AR-004
+      package: formatter
+      installed_version: 3.0.0
+      is_dev: true
+      min_fixed_version: 3.0.1
+      cvss: 8.8
+      epss: 0.42
+      vulnerable_symbols: [formatter.parse]
+    expect:
+      decision: needs_human
+
+  - id: rule-na-not-applied-to-sensitive-tier
+    source: synthetic
+    rule: sensitive_tier
+    description: A sensitive-tier package is never dismissed by static analysis alone.
+    rationale: >
+      pyjwt's vulnerable symbol is not referenced, which for any other package would be
+      not_applicable. The tier rule outranks it: a false negative on an auth library is the most
+      expensive mistake this tool can make, so a human confirms.
+    files:
+      requirements.txt: "pyjwt==2.4.0\n"
+      app/main.py: |
+        import jwt
+
+        def issue():
+            return jwt.encode({"sub": "a"}, "secret", algorithm="HS256")
+    advisory:
+      advisory_id: SYN-ST-001
+      package: pyjwt
+      installed_version: 2.4.0
+      min_fixed_version: 2.4.1
+      cvss: 7.5
+      epss: 0.003
+      vulnerable_symbols: [jwt.decode]
+    expect:
+      decision: needs_human

@@ -1,0 +1,177 @@
+# The eleven advisories of the demo app, end to end.
+#
+# These are the load-bearing cases: real historical advisories, real recorded OSV/EPSS/PyPI and
+# changelog data, and sandbox results from actual Docker runs of the app's test suite. They are the
+# same expectations pinned in tests/graph/test_ingest_reachability.py, restated here as ratified
+# decisions with the reasoning a reviewer would give.
+#
+# Changing any `expect` block below is a decision change and needs two approvals (golden-update.yml).
+
+cases:
+  - id: demo-pyjwt-auth-tier
+    source: fixture
+    repo: fixtures/patchpilot-demo-app
+    advisory_id: GHSA-75c5-xw7c-p5pm
+    rule: sensitive_tier
+    description: Reachable auth-tier advisory on a clean patch bump.
+    rationale: >
+      pyjwt is in the auth sensitive tier, and jwt.decode is called in app/auth.py. The bump is a
+      clean patch and the sandbox is green, but a sensitive tier can never be auto-fixed: the cost
+      of a wrong "safe" call on an authentication library is the highest in the set.
+    expect:
+      decision: needs_human
+      tier: low
+      triggers: [sensitive_tier:auth]
+
+  - id: demo-cryptography-crypto-tier
+    source: fixture
+    repo: fixtures/patchpilot-demo-app
+    advisory_id: GHSA-6vqw-3v5j-54x4
+    rule: sensitive_tier
+    description: Crypto-tier advisory whose vulnerable symbol is never reached.
+    rationale: >
+      The app uses Fernet and never touches pkcs12, so static analysis says not reachable. For a
+      crypto-tier package that is not enough to dismiss it — the tier rule deliberately outranks
+      the not_applicable rule, because a false "not reachable" here is expensive.
+    expect:
+      decision: needs_human
+      tier: low
+      triggers: [sensitive_tier:crypto]
+
+  - id: demo-starlette-major-bump-uninstallable
+    source: fixture
+    repo: fixtures/patchpilot-demo-app
+    advisory_id: GHSA-f96h-pmfr-66vw
+    rule: major_bump
+    description: Major bump that pip cannot install alongside the repo's other pins.
+    rationale: >
+      fastapi 0.100.0 requires starlette<0.28.0, so the minimal safe version 0.40.0 cannot be
+      installed at all. The sandbox proves it rather than guessing: the install fails and no test
+      verdict is produced, which is reported as unproven rather than as a clean run.
+    expect:
+      decision: needs_human
+      tier: medium
+      triggers:
+        - sensitive_tier:web-framework
+        - major_bump
+        - dependency_conflict
+        - sandbox_unsupported
+
+  - id: demo-requests-yanked-fix-version
+    source: fixture
+    repo: fixtures/patchpilot-demo-app
+    advisory_id: GHSA-9wx4-h78v-vm56
+    rule: max_bump
+    description: The advisory's fixed version was yanked, so the target moves up.
+    rationale: >
+      The advisory names 2.32.0, but PyPI yanked 2.32.0 and 2.32.1 ("conflicts with CVE-2024-35195
+      mitigation"), so the minimal installable safe version is 2.32.2. That is a minor bump, which
+      exceeds the auto_fix ceiling of patch, so a human confirms it even though the sandbox is green.
+    expect:
+      decision: needs_human
+      tier: medium
+      triggers: [minor_bump]
+
+  - id: demo-requests-minor-bump
+    source: fixture
+    repo: fixtures/patchpilot-demo-app
+    advisory_id: GHSA-9hjg-9r4m-mvj7
+    rule: max_bump
+    description: Clean minor bump, gated only by the bump ceiling.
+    rationale: >
+      requests 2.31.0 to 2.32.4 is reachable and the sandbox is green, but a minor bump can change
+      behaviour in ways a test suite does not cover. The auto_fix ceiling is patch, so this goes to
+      a human. Raising thresholds.yaml:auto_fix.max_bump to minor would flip this case, which is
+      exactly the kind of change the golden gate exists to surface.
+    expect:
+      decision: needs_human
+      tier: medium
+      triggers: [minor_bump]
+
+  - id: demo-multipart-clean-patch
+    source: fixture
+    repo: fixtures/patchpilot-demo-app
+    advisory_id: GHSA-2jv5-9r88-3w3p
+    rule: auto_fix
+    description: The canonical auto_fix — patch bump, no triggers, green sandbox.
+    rationale: >
+      python-multipart 0.0.6 to 0.0.7 is a patch bump on a package in no sensitive tier, the
+      vulnerable symbol is reached through FastAPI's re-export, and a real Docker run of the app's
+      suite shows no test that passed before and fails after. Nothing here needs a human.
+    expect:
+      decision: auto_fix
+      tier: medium
+      triggers: []
+
+  - id: demo-multipart-clean-patch-second
+    source: fixture
+    repo: fixtures/patchpilot-demo-app
+    advisory_id: GHSA-59g5-xgcq-4qw3
+    rule: auto_fix
+    description: Second advisory on the same package, also auto_fix.
+    rationale: >
+      Same package and same reasoning as the 0.0.7 case, resolving to 0.0.18. Two advisories on one
+      package must be decided independently; this case pins that they are.
+    expect:
+      decision: auto_fix
+      tier: medium
+      triggers: []
+
+  - id: demo-urllib3-symbol-not-called
+    source: fixture
+    repo: fixtures/patchpilot-demo-app
+    advisory_id: GHSA-34jh-p97f-mpxf
+    rule: not_applicable
+    description: Imported, but the vulnerable symbol is never referenced.
+    rationale: >
+      urllib3 is imported, the advisory names ProxyManager, and no call site references it. With
+      high reachability confidence and no sensitive tier, the advisory does not apply to this
+      repository. Nothing is planned and no container is started.
+    expect:
+      decision: not_applicable
+      tier: low
+      triggers: []
+
+  - id: demo-jinja2-symbol-not-called
+    source: fixture
+    repo: fixtures/patchpilot-demo-app
+    advisory_id: GHSA-h75v-3vvj-5mfj
+    rule: not_applicable
+    description: Templates are rendered, but the xmlattr filter is never used.
+    rationale: >
+      The reachability pass reads the templates as well as the Python, and the vulnerable filter
+      appears in neither. This case exists to keep the template scan honest — deleting it would
+      quietly turn this into an unreachable-by-accident result.
+    expect:
+      decision: not_applicable
+      tier: low
+      triggers: []
+
+  - id: demo-pillow-symbol-not-called
+    source: fixture
+    repo: fixtures/patchpilot-demo-app
+    advisory_id: GHSA-44wm-f244-xhp3
+    rule: not_applicable
+    description: Image handling is used; the vulnerable ImageCms path is not.
+    rationale: >
+      Image.open and thumbnail are called, ImageCms is never imported. Reachability distinguishes
+      "the package is used" from "the vulnerable code is used", and this case pins that distinction.
+    expect:
+      decision: not_applicable
+      tier: low
+      triggers: []
+
+  - id: demo-black-dev-only
+    source: fixture
+    repo: fixtures/patchpilot-demo-app
+    advisory_id: GHSA-fj7x-q9j7-g6q6
+    rule: accept_risk
+    description: Dev-only tooling with negligible exploitation probability.
+    rationale: >
+      black is a formatter in requirements-dev.txt, never imported by the application, and its EPSS
+      is far below the accept_risk cutoff. The dev rule runs before the static-dismissal rule on
+      purpose: dev tooling is executed rather than imported, so "never imported" proves nothing.
+    expect:
+      decision: accept_risk
+      tier: low
+      triggers: []
