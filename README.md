@@ -19,9 +19,11 @@ Full design: [docs/DESIGN.md](docs/DESIGN.md) · decisions: [docs/adr](docs/adr)
 | 3 | graph: `ingest → Send(advisory subgraph) × N → collect`, CLI `patchpilot scan` | done |
 | 4 | `risk_policy` (deterministic rules, YAML thresholds/tiers) + `justify` (OpenAI, citation-checked, template fallback, budget meter) | done |
 | 5 | `human_gate` with `interrupt()`, Postgres/SQLite checkpointer + ledger, CLI approval queue | done |
-| 6 | `plan_remediation`: resolver, changelog retrieval, Docker sandbox baseline diff | next |
-| 7 | `execute_pr`, allowlist, secret scan | |
-| 8 | golden set, evaluators, CI gate | |
+| 6 | `plan_remediation`: resolver, changelog retrieval, Docker sandbox baseline diff | done |
+| 7 | `execute_pr`, allowlist, secret scan, injection + budget guardrails | done |
+| 8 | golden set (38 cases), evaluators, CI gate on decision flips | done |
+| 9 | demo app published as its own repo; recorded fixtures frozen against its tag | done |
+| 10 | worker entrypoint, approval API + React queue, hosting, video | next |
 
 ## Try it
 
@@ -47,6 +49,19 @@ node and model call.
 Live mode (`PATCHPILOT_MODE=live`) calls OSV.dev and FIRST EPSS; add `PATCHPILOT_RECORD=1` (or run
 `patchpilot record <repo>`) to refresh the fixtures under `src/patchpilot/recorded/fixtures`.
 
+## Two repositories
+
+`patchpilot` is the agent. The scan target is a **separate** repository, and that separation is
+load-bearing: `execute_pr` opens pull requests against the target, so PatchPilot must never hold
+write access to its own policy, golden expectations or CI workflows. `tools/checkout.py` reads
+`.git` only at the path being scanned and never searches upwards, precisely so a target that lives
+inside another repository cannot inherit its remote.
+
 `fixtures/patchpilot-demo-app` is the deterministic demo target: a small FastAPI service with ten
 pinned dependencies carrying real historical advisories, chosen so every decision class appears.
-It will move to its own public repository once `execute_pr` exists.
+It is published at the `repo_url` and `tag` recorded in
+`src/patchpilot/recorded/fixtures/demo_app.json`, and the vendored copy stays so the suite runs
+offline (rule 2). The two cannot drift: every recorded sandbox result is a claim about that exact
+tree, so `tests/unit/test_demo_app_frozen.py` recomputes a digest and fails if the app changes
+without the fixtures being re-recorded. Rebuild and re-pin with
+`python scripts/publish_demo_app.py --build --freeze`.
