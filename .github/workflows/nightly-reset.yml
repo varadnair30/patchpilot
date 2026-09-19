@@ -1,0 +1,66 @@
+# Put the demo back how it started, every night.
+#
+# The public queue is only interesting if something is in it. Visitors approve things, the worker
+# opens pull requests, and by morning the queue is empty and the demo repo has five stale branches.
+# This closes what PatchPilot opened, clears the state, and runs one fresh scan so the queue is
+# populated again.
+#
+# It closes only branches PatchPilot created — the `patchpilot/` prefix is the same one
+# guardrails/allowlist.py enforces on the way in. Nothing here can touch a human's branch.
+
+name: nightly-reset
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # 03:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: patchpilot-demo-reset
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    if: github.repository == 'varadnair30/patchpilot'
+    env:
+      PATCHPILOT_MODE: recorded
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GITHUB_TOKEN: ${{ secrets.DEMO_APP_TOKEN }}
+      DEMO_REPO: varadnair30/patchpilot-demo-app
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      LANGSMITH_TRACING: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,llm,postgres]"
+
+      - name: Close the pull requests PatchPilot opened, and delete their branches
+        run: python scripts/reset_demo.py --close-prs
+
+      - name: Clear the durable state
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL is not configured; skipping." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python scripts/reset_demo.py --clear-state
+
+      - name: Scan again so the queue is populated for the next visitor
+        run: |
+          if [ -z "$DATABASE_URL" ]; then exit 0; fi
+          patchpilot scan fixtures/patchpilot-demo-app \
+            --thread "demo" \
+            --repo-url "https://github.com/${DEMO_REPO}" | tee scan.log
+          {
+            echo "### Demo reset"
+            echo '```'
+            tail -20 scan.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

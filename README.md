@@ -22,8 +22,8 @@ Full design: [docs/DESIGN.md](docs/DESIGN.md) · decisions: [docs/adr](docs/adr)
 | 6 | `plan_remediation`: resolver, changelog retrieval, Docker sandbox baseline diff | done |
 | 7 | `execute_pr`, allowlist, secret scan, injection + budget guardrails | done |
 | 8 | golden set (38 cases), evaluators, CI gate on decision flips | done |
-| 9 | demo app published as its own repo; recorded fixtures frozen against its tag | done |
-| 10 | worker entrypoint, approval API + React queue, hosting, video | next |
+| 9 | demo app published to its own repo, fixtures frozen against its tag | done |
+| 10 | worker entrypoint, approval API, static queue page, hosting, video | in progress |
 
 ## Try it
 
