@@ -160,6 +160,36 @@ def create_app(rate_limit_per_minute: int = DEFAULT_RATE_LIMIT) -> FastAPI:
                 )
         return await call_next(request)
 
+    @app.get("/")
+    def root() -> dict[str, Any]:
+        """Somewhere to land.
+
+        Anyone who opens the service in a browser — expecting the queue, or just checking it is
+        up — should be told where to go, not handed a bare 404. It is also the honest place to
+        say what this service will not do, since the answer is most of what PatchPilot does.
+        """
+        return {
+            "service": "patchpilot-approval-queue",
+            "what_this_is": (
+                "The approval queue for PatchPilot. It lists advisories the deterministic policy "
+                "would not decide alone, and records a human verdict. The worker applies it."
+            ),
+            "cannot": [
+                "start a scan",
+                "open or merge a pull request",
+                "call a language model",
+            ],
+            "endpoints": {
+                "queue": "/api/queue",
+                "one_item": "/api/queue/{interrupt_id}",
+                "verdict": "POST /api/queue/{interrupt_id}/verdict",
+                "health": "/health",
+                "docs": "/docs",
+            },
+            "web_queue": "https://varadnair30.github.io/patchpilot/queue/",
+            "source": "https://github.com/varadnair30/patchpilot",
+        }
+
     @app.get("/health")
     def health() -> dict[str, Any]:
         """Also the keep-alive target on free hosting, so it is never rate limited."""

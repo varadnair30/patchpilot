@@ -235,3 +235,31 @@ def test_the_api_never_reads_a_model_key(monkeypatch, tmp_path):
     with TestClient(create_app(rate_limit_per_minute=100)) as client:
         assert client.get("/api/queue").status_code == 200
         assert client.get("/health").status_code == 200
+
+
+# ==================================================================== the landing page
+
+
+def test_the_root_says_where_to_go(api):
+    """Opening the service in a browser used to give a bare 404 with no hint."""
+    r = api.get("/")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["endpoints"]["queue"] == "/api/queue"
+    assert "queue" in body["web_queue"]
+
+
+def test_the_root_is_honest_about_what_it_cannot_do(api):
+    cannot = " ".join(api.get("/").json()["cannot"]).lower()
+    assert "scan" in cannot
+    assert "pull request" in cannot
+    assert "language model" in cannot
+
+
+def test_the_root_is_not_rate_limited(tmp_path, monkeypatch):
+    monkeypatch.setenv("PATCHPILOT_CHECKPOINT_DB", str(tmp_path / "s.sqlite"))
+    from patchpilot.config import get_settings
+
+    get_settings.cache_clear()
+    with TestClient(create_app(rate_limit_per_minute=2)) as client:
+        assert all(client.get("/").status_code == 200 for _ in range(8))
