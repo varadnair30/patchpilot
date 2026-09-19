@@ -261,3 +261,40 @@ def record(
 
 if __name__ == "__main__":
     app()
+
+
+@app.command()
+def worker(
+    once: bool = typer.Option(False, "--once", help="Drain the queue and exit (CI/Actions)"),
+    loop: bool = typer.Option(False, "--loop", help="Keep polling (a long-running container)"),
+    poll_seconds: float = typer.Option(5.0, "--poll", help="Seconds between polls in --loop"),
+    name: str | None = typer.Option(None, "--name", help="Worker name recorded on claimed items"),
+) -> None:
+    """Consume the work queue: run scans and resume threads a reviewer has decided.
+
+    The same process either way — ADR-0001 treats the worker as a service and GitHub Actions as
+    only one deployment of it, so `--once` and `--loop` differ solely in whether it comes back.
+    """
+    if once == loop:
+        console.print("[red]choose exactly one of --once or --loop[/red]")
+        raise typer.Exit(2)
+
+    from patchpilot.worker import run_loop, run_once
+
+    result = run_once(worker=name) if once else run_loop(worker=name, poll_seconds=poll_seconds)
+    console.print(f"processed {result.processed}, failed {result.failed}")
+    if result.failed:
+        raise typer.Exit(1)
+
+
+@app.command()
+def enqueue(
+    repo_path: Path = typer.Argument(..., exists=True, file_okay=False, help="Repo to scan"),
+    repo_url: str | None = typer.Option(None, "--repo-url", help="Where pull requests go"),
+) -> None:
+    """Queue a scan for the worker to pick up, rather than running it here and now."""
+    from patchpilot.storage.queue import open_work_queue
+
+    with open_work_queue() as queue:
+        item = queue.enqueue(kind="scan", repo_path=str(repo_path.resolve()), repo_url=repo_url)
+    console.print(f"queued scan #{item.id} for {repo_path}")
