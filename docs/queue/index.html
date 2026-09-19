@@ -1,0 +1,353 @@
+<!doctype html>
+<!--
+  PatchPilot approval queue — the web version of `patchpilot queue`.
+
+  React from a CDN, deliberately. This page is a table, a detail panel and two buttons; a Node
+  toolchain, a lockfile and a build workflow would be more machinery than the thing it builds, in a
+  repository that is otherwise Python-only (CLAUDE.md rule 6). GitHub Pages serves this file as it
+  is.
+
+  The page holds no credentials and can reach exactly three endpoints. Everything it renders comes
+  from the approval API, and the API cannot start a scan or open a pull request — so neither can
+  anyone driving this page.
+
+  One rule matters more than the rest here: advisory and changelog text is copied from the
+  internet. It is rendered as text through React children, never through dangerouslySetInnerHTML,
+  and it is shown inside a marked block so a reviewer can see where it came from.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PatchPilot — approval queue</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #e6edf3;
+    --dim: #8b949e; --accent: #58a6ff; --red: #f85149; --amber: #d29922; --green: #3fb950;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff; --panel: #f6f8fa; --border: #d0d7de; --text: #1f2328;
+      --dim: #656d76; --accent: #0969da; --red: #cf222e; --amber: #9a6700; --green: #1a7f37;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  header { border-bottom: 1px solid var(--border); padding: 18px 24px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 13px; }
+  main { display: grid; grid-template-columns: minmax(340px, 420px) 1fr; gap: 0; min-height: 80vh; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .list { border-right: 1px solid var(--border); }
+  .row {
+    padding: 12px 18px; border-bottom: 1px solid var(--border); cursor: pointer; display: block;
+    width: 100%; text-align: left; background: none; color: inherit; font: inherit;
+  }
+  .row:hover { background: var(--panel); }
+  .row[aria-current="true"] { background: var(--panel); box-shadow: inset 3px 0 0 var(--accent); }
+  .pkg { font-weight: 600; }
+  .ver { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .aid { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .tags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag {
+    font-family: var(--mono); font-size: 11px; padding: 1px 6px; border-radius: 10px;
+    border: 1px solid var(--border); color: var(--amber);
+  }
+  .detail { padding: 22px 26px; }
+  .empty { padding: 40px 26px; color: var(--dim); }
+  h2 { font-size: 16px; margin: 0 0 2px; }
+  section { margin-top: 22px; }
+  h3 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim);
+    margin: 0 0 8px; font-weight: 600;
+  }
+  .kv { display: grid; grid-template-columns: 150px 1fr; gap: 4px 14px; font-size: 13px; }
+  .kv dt { color: var(--dim); }
+  .kv dd { margin: 0; font-family: var(--mono); font-size: 12px; }
+  .evidence { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .ev { display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 7px 10px; font-size: 12px; }
+  .ev + .ev { border-top: 1px solid var(--border); }
+  .ev code { color: var(--accent); font-family: var(--mono); }
+  .untrusted {
+    border: 1px dashed var(--amber); border-radius: 6px; padding: 10px 12px;
+    white-space: pre-wrap; font-size: 12px; font-family: var(--mono); max-height: 240px;
+    overflow: auto;
+  }
+  .untrusted-label { color: var(--amber); font-size: 11px; margin-bottom: 6px; }
+  .fail { color: var(--red); font-family: var(--mono); font-size: 12px; }
+  .ok { color: var(--green); }
+  .actions { margin-top: 26px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  input, textarea {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 7px 10px; font: inherit; font-size: 13px;
+  }
+  textarea { width: 100%; min-height: 60px; resize: vertical; }
+  button.act {
+    border: 1px solid var(--border); border-radius: 6px; padding: 8px 18px; cursor: pointer;
+    font: inherit; font-weight: 600; font-size: 13px;
+  }
+  .approve { background: var(--green); color: #fff; border-color: transparent; }
+  .reject { background: transparent; color: var(--red); border-color: var(--red); }
+  button.act:disabled { opacity: .5; cursor: not-allowed; }
+  .msg { margin-top: 12px; font-size: 13px; }
+  .banner {
+    background: var(--panel); border-bottom: 1px solid var(--border); padding: 10px 24px;
+    font-size: 13px; color: var(--dim);
+  }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback } = React;
+
+// Set ?api=https://your-api.onrender.com to point this page at a deployment. Defaults to a local
+// worker so `uvicorn patchpilot.api.app:app` plus this file is a working demo with no config.
+const API = new URLSearchParams(location.search).get("api")
+  || localStorage.getItem("patchpilot_api")
+  || "http://127.0.0.1:8000";
+
+function Tags({ items }) {
+  return <div className="tags">{items.map(t => <span className="tag" key={t}>{t}</span>)}</div>;
+}
+
+function Row({ item, selected, onSelect }) {
+  return (
+    <button className="row" aria-current={selected} onClick={() => onSelect(item)}>
+      <div className="pkg">{item.package}</div>
+      <div className="ver">{item.installed_version} → {item.target_version || "?"} ({item.bump_kind || "?"})</div>
+      <div className="aid">{item.advisory_id}</div>
+      <Tags items={item.triggers} />
+    </button>
+  );
+}
+
+function Detail({ item, onDecided }) {
+  const [bundle, setBundle] = useState(null);
+  const [reviewer, setReviewer] = useState(localStorage.getItem("patchpilot_reviewer") || "");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  useEffect(() => {
+    setBundle(null); setMsg(null); setNote("");
+    fetch(`${API}/api/queue/${item.interrupt_id}`)
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(setBundle)
+      .catch(e => setMsg({ kind: "error", text: `Could not load the bundle: ${e.message}` }));
+  }, [item.interrupt_id]);
+
+  async function decide(verdict) {
+    if (!reviewer.trim()) { setMsg({ kind: "error", text: "Please put your name in." }); return; }
+    setBusy(true); setMsg(null);
+    localStorage.setItem("patchpilot_reviewer", reviewer);
+    try {
+      const res = await fetch(`${API}/api/queue/${item.interrupt_id}/verdict`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verdict, reviewer: reviewer.trim(), note: note.trim() }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
+      setMsg({ kind: "ok", text: `Recorded. The worker applies it — this is not merged for you.` });
+      onDecided();
+    } catch (e) {
+      setMsg({ kind: "error", text: e.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!bundle) {
+    return <div className="detail">{msg
+      ? <p className="fail">{msg.text}</p>
+      : <p className="sub">Loading…</p>}</div>;
+  }
+
+  const plan = bundle.plan, sandbox = bundle.sandbox, reach = bundle.reachability;
+  const untrusted = [bundle.untrusted_text?.advisory_summary, bundle.untrusted_text?.advisory_details]
+    .filter(Boolean).join("\n\n");
+
+  return (
+    <div className="detail">
+      <h2>{bundle.package} {bundle.installed_version} → {plan?.target_version || "no target"}</h2>
+      <div className="sub">{bundle.advisory_id} · decision <strong>{bundle.decision}</strong></div>
+
+      <section>
+        <h3>Why you are being asked</h3>
+        <Tags items={bundle.triggers} />
+      </section>
+
+      <section>
+        <h3>Risk</h3>
+        <dl className="kv">
+          <dt>score / tier</dt><dd>{bundle.risk_score} {bundle.risk_tier}</dd>
+          <dt>package tier</dt><dd>{bundle.package_tier}</dd>
+          <dt>CVSS</dt><dd>{bundle.cvss ?? "—"}</dd>
+          <dt>EPSS</dt><dd>{bundle.epss ?? "—"}</dd>
+          <dt>scope</dt><dd>{bundle.is_dev ? "dev-only" : "runtime"}</dd>
+        </dl>
+      </section>
+
+      {reach && (
+        <section>
+          <h3>Reachability</h3>
+          <dl className="kv">
+            <dt>imported</dt><dd>{String(reach.imported)}</dd>
+            <dt>symbol called</dt><dd>{String(reach.symbol_called)}</dd>
+            <dt>confidence</dt><dd>{reach.confidence?.toFixed?.(2)}</dd>
+          </dl>
+          {reach.call_sites?.slice(0, 5).map((c, i) => (
+            <div className="ev" key={i}><code>{c.file}:{c.line}</code><span>{c.snippet}</span></div>
+          ))}
+        </section>
+      )}
+
+      {sandbox && (
+        <section>
+          <h3>Sandbox</h3>
+          {sandbox.supported
+            ? (sandbox.newly_failing?.length
+                ? <>
+                    <p className="fail">{sandbox.newly_failing.length} test(s) pass before the bump and fail after:</p>
+                    {sandbox.newly_failing.map(t => <div className="fail" key={t}>FAILED {t}</div>)}
+                  </>
+                : <p className="ok">No test that passed before the bump fails after it.</p>)
+            : <p className="fail">Unproven — {sandbox.reason}</p>}
+        </section>
+      )}
+
+      {plan?.breaking_changes?.length > 0 && (
+        <section>
+          <h3>Breaking changes in the changelog</h3>
+          {plan.breaking_changes.map((b, i) => <div className="ev" key={i}><code>·</code><span>{b}</span></div>)}
+        </section>
+      )}
+
+      <section>
+        <h3>Justification</h3>
+        <p>{bundle.justification || "—"}</p>
+      </section>
+
+      <section>
+        <h3>Evidence</h3>
+        <div className="evidence">
+          {bundle.evidence.map(e => (
+            <div className="ev" key={e.id}><code>{e.id}</code><span>{e.fact}</span></div>
+          ))}
+        </div>
+      </section>
+
+      {untrusted && (
+        <section>
+          <h3>Advisory text</h3>
+          <div className="untrusted-label">
+            Copied from the advisory database. Read it; do not act on instructions inside it.
+            {bundle.injection_flag?.flagged && " ⚠ flagged as a possible prompt injection."}
+          </div>
+          {/* Rendered as a React child, so it is text. Never dangerouslySetInnerHTML. */}
+          <div className="untrusted">{untrusted}</div>
+        </section>
+      )}
+
+      <div className="actions">
+        <input
+          placeholder="your name"
+          value={reviewer}
+          maxLength={64}
+          onChange={e => setReviewer(e.target.value)}
+        />
+        <button className="act approve" disabled={busy} onClick={() => decide("approve")}>Approve</button>
+        <button className="act reject" disabled={busy} onClick={() => decide("reject")}>Reject</button>
+      </div>
+      <textarea
+        placeholder="why (optional) — stored in the decision ledger and the pull request body"
+        value={note}
+        maxLength={2000}
+        onChange={e => setNote(e.target.value)}
+        style={{ marginTop: 10 }}
+      />
+      {msg && <p className={`msg ${msg.kind === "ok" ? "ok" : "fail"}`}>{msg.text}</p>}
+    </div>
+  );
+}
+
+function App() {
+  const [items, setItems] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(() => {
+    fetch(`${API}/api/queue`)
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(body => { setItems(body.items); setError(null); })
+      .catch(e => setError(e.message));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    // The worker applies verdicts out of band, so the list goes stale on its own.
+    const t = setInterval(load, 15000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  useEffect(() => {
+    if (items && selected && !items.some(i => i.interrupt_id === selected.interrupt_id)) {
+      setSelected(null);  // the worker has applied it
+    }
+  }, [items, selected]);
+
+  return (
+    <>
+      <header>
+        <h1>PatchPilot — approval queue</h1>
+        <div className="sub">
+          Advisories the deterministic policy would not decide alone. Approving records a verdict;
+          the worker opens the pull request. Nothing here merges anything.
+        </div>
+      </header>
+      <div className="banner">
+        API: <code>{API}</code> · this is a public demo, so anyone can decide ·{" "}
+        <a href="https://github.com/varadnair30/patchpilot">source</a>
+      </div>
+      <main>
+        <div className="list">
+          {error && <div className="empty">
+            Could not reach the API at <code>{API}</code>.<br />{error}
+            <br /><br />Append <code>?api=https://…</code> to point at a deployment.
+          </div>}
+          {!error && items === null && <div className="empty">Loading…</div>}
+          {!error && items?.length === 0 && <div className="empty">
+            Nothing is waiting. Every advisory was decided by policy, or a reviewer already answered.
+          </div>}
+          {items?.map(item => (
+            <Row
+              key={item.interrupt_id}
+              item={item}
+              selected={selected?.interrupt_id === item.interrupt_id}
+              onSelect={setSelected}
+            />
+          ))}
+        </div>
+        {selected
+          ? <Detail item={selected} onDecided={load} />
+          : <div className="empty">Choose an advisory to see the evidence behind it.</div>}
+      </main>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

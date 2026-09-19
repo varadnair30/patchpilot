@@ -1,0 +1,32 @@
+# Render blueprint for the approval API.
+#
+# This deploys ONE of PatchPilot's three components. The worker is not here: it needs Docker and a
+# GitHub write token, and the demo runs it as a GitHub Actions job (ADR-0001 — Actions is the demo
+# deployment of the worker, not the shape of the system). Postgres is on Neon, not Render, so the
+# free instance spinning down never costs data.
+#
+# The service holds no model key. Do not add one: `tests/unit/test_api.py` asserts the API never
+# constructs a model, and giving this container a key would make that guarantee a lie.
+
+services:
+  - type: web
+    name: patchpilot-approval-queue
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # Neon connection string. The one piece of state the API and the worker share.
+      - key: DATABASE_URL
+        sync: false
+      # Lock this to the Pages origin once it is published; "*" is fine while it is not.
+      - key: PATCHPILOT_CORS_ORIGINS
+        value: "*"
+      # Optional. Lets a verdict wake the worker immediately instead of waiting for the next poll.
+      # Scope it to trigger workflows and nothing else; the queue is the source of truth either way.
+      - key: PATCHPILOT_DISPATCH_TOKEN
+        sync: false
+      - key: PATCHPILOT_DISPATCH_REPO
+        value: varadnair30/patchpilot
+      - key: PATCHPILOT_MODE
+        value: recorded

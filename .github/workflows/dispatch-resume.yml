@@ -1,0 +1,62 @@
+# The worker, deployed as a GitHub Actions job.
+#
+# ADR-0001: the worker is a long-running service, and this is one *deployment* of it, not its
+# shape. `patchpilot worker --once` is the same command a container runs; nothing in the worker
+# knows which is happening. Swap this for a container on any host with Docker and no code changes.
+#
+# Two things wake it: the approval API firing `repository_dispatch` when someone records a verdict,
+# and a schedule, so a verdict still lands within a few minutes if the dispatch token is absent or
+# the call failed. The queue is the source of truth — the dispatch only saves waiting.
+
+name: dispatch-resume
+
+on:
+  repository_dispatch:
+    types: [patchpilot-resume]
+  schedule:
+    - cron: "*/30 * * * *"   # a floor on latency when no dispatch arrives
+  workflow_dispatch:
+
+# A second worker would just find an empty queue — the claim is atomic — but there is no reason
+# to pay for one.
+concurrency:
+  group: patchpilot-worker
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    # A fork's scheduled run would have no secrets and nothing to do.
+    if: github.repository == 'varadnair30/patchpilot'
+    env:
+      PATCHPILOT_MODE: recorded
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # Scoped to patchpilot-demo-app only: Contents and Pull requests, nothing else.
+      GITHUB_TOKEN: ${{ secrets.DEMO_APP_TOKEN }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      LANGSMITH_TRACING: "true"
+      LANGSMITH_PROJECT: patchpilot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,llm,postgres]"
+
+      - name: Drain the queue
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL is not configured; nothing to drain." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          patchpilot worker --once --name "actions-${GITHUB_RUN_ID}" | tee worker.log
+          {
+            echo "### PatchPilot worker"
+            echo '```'
+            cat worker.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
