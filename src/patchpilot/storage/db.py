@@ -221,15 +221,22 @@ class Ledger:
 
 
 @contextmanager
+def sqlite_connection(url: str) -> Iterator[sqlite3.Connection]:
+    """A SQLite connection for `memory` or `sqlite:///`. Shared by the ledger and the queue."""
+    path = ":memory:" if url == MEMORY_URL else _sqlite_path(url)
+    connection = sqlite3.connect(path)
+    try:
+        yield connection
+    finally:
+        connection.close()
+
+
+@contextmanager
 def open_ledger(url: str | None = None) -> Iterator[Ledger]:
     url = url or checkpoint_url()
     if url == MEMORY_URL or url.startswith(SQLITE_PREFIX):
-        path = ":memory:" if url == MEMORY_URL else _sqlite_path(url)
-        connection = sqlite3.connect(path)
-        try:
+        with sqlite_connection(url) as connection:
             yield Ledger(connection, "?")
-        finally:
-            connection.close()
         return
     if url.startswith(POSTGRES_PREFIXES):
         try:
