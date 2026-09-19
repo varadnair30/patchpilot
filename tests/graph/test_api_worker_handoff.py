@@ -100,3 +100,70 @@ def test_a_rejection_is_applied_without_opening_anything(system):
     decided = next(a for a in values["advisories"] if a.advisory_id == target["advisory_id"])
     assert decided.human.verdict == "reject"
     assert decided.pr is None, "a rejected advisory must never have a pull request"
+
+
+def test_a_verdict_from_the_web_queue_reaches_the_decision_ledger(system):
+    """The ledger is the audit trail, and step 8's ratification job promotes its rows to golden
+    cases. `patchpilot queue approve` wrote it; the worker path did not, so every decision made
+    through the web queue — the primary path once deployed — was unaudited and invisible to
+    ratification."""
+    from patchpilot.storage.db import open_ledger
+
+    with open_ledger() as ledger:
+        assert ledger.list() == []
+
+    target = system.get("/api/queue").json()["items"][0]
+    system.post(
+        f"/api/queue/{target['interrupt_id']}/verdict",
+        json={"verdict": "approve", "reviewer": "alice", "note": "evidence checked"},
+    )
+
+    with open_ledger() as ledger:
+        assert ledger.list() == [], "recording a verdict must not write the ledger; applying does"
+
+    run_once(worker="w1")
+
+    with open_ledger() as ledger:
+        rows = ledger.list()
+    assert len(rows) == 1
+    row = rows[0]
+    assert row.advisory_id == target["advisory_id"], (
+        "the ledger names the advisory, not an opaque id"
+    )
+    assert (row.reviewer, row.verdict, row.note) == ("alice", "approve", "evidence checked")
+    assert row.scan_id == "demo"
+
+
+def test_a_rejection_is_audited_too(system):
+    from patchpilot.storage.db import open_ledger
+
+    target = system.get("/api/queue").json()["items"][0]
+    system.post(
+        f"/api/queue/{target['interrupt_id']}/verdict",
+        json={"verdict": "reject", "reviewer": "bob", "note": "not now"},
+    )
+    run_once(worker="w1")
+
+    with open_ledger() as ledger:
+        rows = ledger.list()
+    assert [(r.verdict, r.reviewer) for r in rows] == [("reject", "bob")]
+
+
+def test_every_applied_verdict_is_audited(system):
+    """Whatever the queue held, the ledger should account for all of it."""
+    from patchpilot.storage.db import open_ledger
+
+    decided = []
+    while items := system.get("/api/queue").json()["items"]:
+        target = items[0]
+        system.post(
+            f"/api/queue/{target['interrupt_id']}/verdict",
+            json={"verdict": "approve", "reviewer": "alice"},
+        )
+        run_once(worker="w1")
+        decided.append(target["advisory_id"])
+
+    with open_ledger() as ledger:
+        rows = ledger.list()
+    assert {r.advisory_id for r in rows} == set(decided)
+    assert len(rows) == len(decided) == len(GATED)
