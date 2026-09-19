@@ -43,10 +43,20 @@ class DemoAppManifest(BaseModel):
 
 
 def iter_files(root: Path) -> list[Path]:
+    """Files in an order that does not depend on the operating system.
+
+    Sorting `Path` objects is a trap here: comparison is case-folded on Windows and case-sensitive
+    on POSIX, so `README.md` sorts before `app/` on Linux and after it on Windows. That is enough
+    to change the digest between a developer's machine and CI while every file is byte-identical.
+    Sort on the relative POSIX string instead.
+    """
     return sorted(
-        path
-        for path in root.rglob("*")
-        if path.is_file() and not (set(path.relative_to(root).parts) & IGNORED_DIRS)
+        (
+            path
+            for path in root.rglob("*")
+            if path.is_file() and not (set(path.relative_to(root).parts) & IGNORED_DIRS)
+        ),
+        key=lambda path: path.relative_to(root).as_posix(),
     )
 
 

@@ -175,3 +175,21 @@ def test_the_shipped_manifest_is_valid_json_and_parses():
 def test_the_manifest_requires_a_digest(field):
     with pytest.raises(ValueError):
         DemoAppManifest.model_validate({})
+
+
+def test_the_file_order_does_not_depend_on_the_operating_system(tmp_path):
+    """The bug that broke CI: sorting Path objects is case-folded on Windows and case-sensitive on
+    POSIX, so `README.md` sorted before `app/` on Linux and after it on Windows. Every file was
+    byte-identical; only the hashing order differed, and that was enough to fail the freeze."""
+    root = tmp_path / "app"
+    (root / "app").mkdir(parents=True)
+    (root / "README.md").write_text("readme\n", encoding="utf-8")
+    (root / "app" / "main.py").write_text("x = 1\n", encoding="utf-8")
+    (root / "Zebra.txt").write_text("z\n", encoding="utf-8")
+    (root / "apple.txt").write_text("a\n", encoding="utf-8")
+
+    order = [p.relative_to(root).as_posix() for p in iter_files(root)]
+    assert order == sorted(order), "iteration must follow plain string order on every platform"
+    # Case matters: an uppercase name sorts before a lowercase one, as it does on Linux.
+    assert order.index("README.md") < order.index("app/main.py")
+    assert order.index("Zebra.txt") < order.index("apple.txt")
