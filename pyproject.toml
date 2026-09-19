@@ -21,7 +21,20 @@ dependencies = [
 [project.optional-dependencies]
 llm = ["langchain-openai>=0.2", "langsmith>=0.1"]
 postgres = ["langgraph-checkpoint-postgres>=2.0", "psycopg[binary]>=3.1"]
-dev = ["pytest>=8.0", "ruff>=0.5", "mypy>=1.10", "langgraph-checkpoint-sqlite>=2.0"]
+# The approval API. Deliberately a separate extra: the worker does not need it, and the API
+# image should not carry the graph's dependencies.
+api = ["fastapi>=0.110", "uvicorn[standard]>=0.27"]
+# `dev` must be enough to run the whole suite, because that is the command CLAUDE.md and the
+# README document and the command CI runs. tests/unit/test_api.py imports fastapi at module level,
+# so leaving the api extra out here turns a missing dependency into a collection error rather than
+# a skipped test — which is exactly how it was found.
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.5",
+  "mypy>=1.10",
+  "langgraph-checkpoint-sqlite>=2.0",
+  "patchpilot[api]",
+]
 
 [project.scripts]
 patchpilot = "patchpilot.cli.main:app"
