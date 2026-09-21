@@ -80,10 +80,18 @@ class GraphRunner:
         from patchpilot.graph.build import build_graph
         from patchpilot.graph.nodes.human_gate import ResumeCommand
         from patchpilot.graph.queue import pending_gates, resume_gate
-        from patchpilot.storage.db import open_checkpointer
+        from patchpilot.storage.db import open_checkpointer, open_ledger
 
         with open_checkpointer() as saver:
             graph = build_graph(saver)
+            advisory_id = next(
+                (
+                    gate.payload.advisory_id
+                    for gate in pending_gates(graph, thread_id)
+                    if gate.interrupt_id == interrupt_id
+                ),
+                interrupt_id,
+            )
             resume_gate(
                 graph,
                 thread_id,
@@ -91,7 +99,21 @@ class GraphRunner:
                 ResumeCommand(verdict=verdict, reviewer=reviewer, note=note),
             )
             remaining = len(pending_gates(graph, thread_id))
-        return {"thread_id": thread_id, "remaining": remaining}
+
+        # The ledger is the audit trail, and step 8's ratification job promotes its rows to golden
+        # cases. `patchpilot queue approve` writes it because it applies the resume itself; a
+        # verdict that arrived through the API is applied here, so it has to be written here too.
+        # Without this, every decision made through the web queue — the primary path in the
+        # deployed system — would be both unaudited and invisible to ratification.
+        with open_ledger() as ledger:
+            ledger.record(
+                scan_id=thread_id,
+                advisory_id=advisory_id,
+                reviewer=reviewer,
+                verdict=verdict,
+                note=note,
+            )
+        return {"thread_id": thread_id, "remaining": remaining, "advisory_id": advisory_id}
 
 
 def process_item(item: QueueItem, runner: Runner) -> str:
